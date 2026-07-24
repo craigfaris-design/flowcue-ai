@@ -31,9 +31,11 @@ export function SettingsView({ settings, onChange, onClearAllData }: SettingsVie
       <div className="settingsCard">
         <h3>Offline Mode</h3>
         <p>
-          When enabled, scripts you mark "Cached for offline rehearsal" pre-load their text and
-          rely only on on-device recognition, so a bad venue Wi-Fi never breaks the cue (see the
-          Technical Architecture doc's hybrid on-device/cloud plan).
+          For privacy-sensitive rehearsals, restricts FlowCue AI to on-device-only speech
+          recognition (see the Technical Architecture doc's hybrid on-device/cloud plan). Not yet
+          available in this beta build: this build's only recognizer isn't guaranteed on-device, so
+          enabling this turns off live cueing entirely rather than silently sending audio to the
+          cloud anyway.
         </p>
         <label className="switchRow switchRow--light">
           <input

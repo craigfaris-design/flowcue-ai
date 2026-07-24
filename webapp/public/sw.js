@@ -22,6 +22,25 @@ self.addEventListener("activate", (event) => {
 
 self.addEventListener("fetch", (event) => {
   if (event.request.method !== "GET") return;
+
+  // Navigations (the HTML shell) must be network-first: Vite's built assets are
+  // content-hashed and safe to cache forever, but index.html points at whichever
+  // hashed bundle was live at cache time. Cache-first here would pin a returning
+  // user to a stale build indefinitely, since CACHE_NAME only changes on deploy.
+  // Cache-first stays correct for everything else (hashed JS/CSS, icons).
+  if (event.request.mode === "navigate") {
+    event.respondWith(
+      fetch(event.request)
+        .then((response) => {
+          const copy = response.clone();
+          caches.open(CACHE_NAME).then((cache) => cache.put(event.request, copy)).catch(() => {});
+          return response;
+        })
+        .catch(() => caches.match(event.request).then((cached) => cached || caches.match("/index.html")))
+    );
+    return;
+  }
+
   event.respondWith(
     caches.match(event.request).then((cached) => {
       if (cached) return cached;

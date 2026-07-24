@@ -10,6 +10,7 @@ import "./ScriptWorkspace.css";
 interface ScriptWorkspaceProps {
   script: Script;
   defaultVisualMode: VisualMode;
+  offlineModeEnabled: boolean;
   onBack: () => void;
   onScriptUpdated: (script: Script) => void;
   onScriptDeleted: (id: string) => void;
@@ -19,7 +20,14 @@ const FILLER_WORDS = new Set(["um", "uh", "like", "actually", "basically", "lite
 
 type Mode = "edit" | "rehearse";
 
-export function ScriptWorkspace({ script, defaultVisualMode, onBack, onScriptUpdated, onScriptDeleted }: ScriptWorkspaceProps) {
+export function ScriptWorkspace({
+  script,
+  defaultVisualMode,
+  offlineModeEnabled,
+  onBack,
+  onScriptUpdated,
+  onScriptDeleted,
+}: ScriptWorkspaceProps) {
   const [mode, setMode] = useState<Mode>("rehearse");
   const [title, setTitle] = useState(script.title);
   const [body, setBody] = useState(script.body);
@@ -51,6 +59,14 @@ export function ScriptWorkspace({ script, defaultVisualMode, onBack, onScriptUpd
   }, [engine]);
 
   function handleStart() {
+    // This beta build's only recognizer (the browser's Web Speech API) is not
+    // guaranteed on-device -- in Chrome/Edge it streams audio to Google's
+    // cloud service. If the user has opted into Offline Mode (privacy-
+    // sensitive use cases per the Technical Architecture doc), silently
+    // starting cloud-dependent recognition anyway would violate that choice,
+    // so refuse rather than guess. See the `!supported || offlineModeEnabled`
+    // guard on the Start button below.
+    if (offlineModeEnabled) return;
     sessionRef.current = { startedAt: Date.now(), wordCount: 0, fillerCount: 0 };
     setLatestSession(null);
     start();
@@ -140,7 +156,11 @@ export function ScriptWorkspace({ script, defaultVisualMode, onBack, onScriptUpd
               <h3>Live Cueing</h3>
               <div className="panelCard__row">
                 {!listening ? (
-                  <button className="btn btn--primary" onClick={handleStart} disabled={!supported}>
+                  <button
+                    className="btn btn--primary"
+                    onClick={handleStart}
+                    disabled={!supported || offlineModeEnabled}
+                  >
                     ▶ Start Listening
                   </button>
                 ) : (
@@ -157,7 +177,14 @@ export function ScriptWorkspace({ script, defaultVisualMode, onBack, onScriptUpd
                   This browser doesn't support live speech recognition (Chrome/Edge recommended).
                 </div>
               )}
-              {supported && recognitionError && (
+              {supported && offlineModeEnabled && (
+                <div className="panelCard__warning">
+                  Live cueing is off while Offline Mode is on. This beta build's only recognizer isn't
+                  guaranteed on-device yet, so it won't run rather than silently break that choice.
+                  Turn off Offline Mode in Settings to rehearse now.
+                </div>
+              )}
+              {supported && !offlineModeEnabled && recognitionError && (
                 <div className="panelCard__warning" role="alert">
                   {recognitionError}
                 </div>
@@ -166,8 +193,10 @@ export function ScriptWorkspace({ script, defaultVisualMode, onBack, onScriptUpd
                 {listening ? "● Listening" : "Stopped"}
               </div>
               <div className="panelCard__disclosure">
-                Audio is processed locally in your browser. It is not stored or sent anywhere by
-                default.
+                This beta build uses your browser's built-in speech recognition. In most browsers
+                (e.g. Chrome), that means audio is sent to the browser vendor's cloud service for
+                transcription -- FlowCue AI itself does not store or transmit it. Fully on-device
+                recognition is planned but not yet available (see Offline Mode in Settings).
               </div>
             </div>
 

@@ -75,6 +75,7 @@ export default function App() {
           <ScriptWorkspace
             script={activeScript}
             defaultVisualMode={settings.visualMode}
+            offlineModeEnabled={settings.offlineModeEnabled}
             onBack={() => setActiveScriptId(null)}
             onScriptUpdated={handleScriptUpdated}
             onScriptDeleted={handleDelete}
