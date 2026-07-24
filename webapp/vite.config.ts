@@ -7,8 +7,12 @@ export default defineConfig({
   // host: true binds the dev server to 0.0.0.0, not just localhost, so it's
   // reachable from a phone on the same Wi-Fi network for real-device testing
   // (see DEPLOYMENT.md). This is a local dev server, not a public deploy.
+  // Honors PORT so a tool-assigned instance (e.g. an automated preview) can
+  // run alongside a manually-started one on the default 5173 without either
+  // fighting over the same port.
   server: {
     host: true,
+    port: Number(process.env.PORT) || 5173,
   },
   test: {
     environment: 'jsdom',
