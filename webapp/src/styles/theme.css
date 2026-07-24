@@ -1,17 +1,24 @@
 :root {
-  --navy: #1e2761;
-  --navy-dark: #141b47;
-  --navy-deep: #0c1030;
-  --ice: #cadcfc;
-  --gold: #ffd166;
-  --white: #ffffff;
-  --text: #eef1f7;
-  --text-dim: #9aa4c2;
-  --panel: #1b2358;
-  --panel-2: #232c66;
-  --card-bg-light: #f5f7fc;
-  --ok: #57cc99;
-  --danger: #ff6b6b;
+  /* Modern pastel palette */
+  --lavender: #8e7cc3;
+  --lavender-deep: #6c58a8;
+  --lavender-tint: #f1ecfb;
+  --mint: #6fcf97;
+  --mint-deep: #268a5b;
+  --mint-tint: #e3fbf0;
+  --peach: #ffb199;
+  --peach-deep: #c2603e;
+  --peach-tint: #ffede6;
+  --coral: #f76c82;
+  --coral-deep: #c43f57;
+  --coral-tint: #ffe6ea;
+  --cream: #fbf8f4;
+  --surface: #ffffff;
+  --surface-2: #f5f1fb;
+  --ink: #362f4a;
+  --ink-dim: #6e6785;
+  --ink-faint: #b3adc7;
+  --border: #e7e2f5;
   --radius-lg: 16px;
   --radius-md: 12px;
   --radius-sm: 8px;
@@ -26,8 +33,8 @@ html, body, #root {
 }
 
 body {
-  background: var(--navy-deep);
-  color: var(--text);
+  background: var(--cream);
+  color: var(--ink);
 }
 
 button {
@@ -35,4 +42,4 @@ button {
 }
 
 ::-webkit-scrollbar { width: 8px; height: 8px; }
-::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.14); border-radius: 8px; }
+::-webkit-scrollbar-thumb { background: rgba(108,88,168,0.18); border-radius: 8px; }

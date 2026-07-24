@@ -1,24 +1,25 @@
 .onboarding {
   position: fixed;
   inset: 0;
-  background: rgba(12,16,48,0.72);
+  background: rgba(54,47,74,0.35);
   display: flex;
   align-items: center;
   justify-content: center;
   z-index: 100;
 }
 .onboarding__card {
-  background: var(--navy);
-  border: 1px solid rgba(255,255,255,0.1);
+  background: var(--surface);
+  border: 1px solid var(--border);
   border-radius: var(--radius-lg);
   padding: 32px;
   max-width: 440px;
   width: 90%;
-  color: var(--white);
+  color: var(--ink);
+  box-shadow: 0 20px 60px rgba(108,88,168,0.18);
 }
 .onboarding__dots { display: flex; gap: 6px; margin-bottom: 18px; }
-.onboarding__dot { width: 7px; height: 7px; border-radius: 50%; background: rgba(255,255,255,0.2); }
-.onboarding__dot--active { background: var(--gold); }
+.onboarding__dot { width: 7px; height: 7px; border-radius: 50%; background: var(--border); }
+.onboarding__dot--active { background: var(--peach-deep); }
 .onboarding__card h2 { font-size: 21px; margin: 0 0 12px; font-family: Cambria, Georgia, serif; }
-.onboarding__card p { font-size: 14px; color: var(--ice); line-height: 1.6; margin: 0 0 24px; }
+.onboarding__card p { font-size: 14px; color: var(--ink-dim); line-height: 1.6; margin: 0 0 24px; }
 .onboarding__actions { display: flex; justify-content: flex-end; gap: 10px; }

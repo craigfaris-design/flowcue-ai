@@ -7,6 +7,6 @@
 .app__main {
   flex: 1;
   overflow-y: auto;
-  background: var(--white);
+  background: var(--cream);
   min-width: 0;
 }

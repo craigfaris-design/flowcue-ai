@@ -1,11 +1,11 @@
 .sidebar {
   width: 230px;
   min-width: 230px;
-  background: var(--navy-dark);
+  background: var(--surface-2);
   display: flex;
   flex-direction: column;
   padding: 20px 16px;
-  border-right: 1px solid rgba(255,255,255,0.06);
+  border-right: 1px solid var(--border);
 }
 
 .sidebar__brand {
@@ -14,13 +14,13 @@
   gap: 10px;
   font-weight: 700;
   font-size: 16px;
-  color: var(--white);
+  color: var(--ink);
   padding: 4px 8px 24px;
 }
 
 .sidebar__dot {
   width: 10px; height: 10px; border-radius: 50%;
-  background: linear-gradient(135deg, var(--ice), var(--gold));
+  background: linear-gradient(135deg, var(--lavender), var(--peach));
 }
 
 .sidebar__nav {
@@ -33,23 +33,23 @@
   text-align: left;
   background: none;
   border: none;
-  color: var(--text-dim);
+  color: var(--ink-dim);
   font-size: 14px;
   padding: 10px 12px;
   border-radius: var(--radius-sm);
   cursor: pointer;
 }
-.sidebar__navItem:hover { background: rgba(255,255,255,0.05); color: var(--text); }
+.sidebar__navItem:hover { background: rgba(108,88,168,0.08); color: var(--ink); }
 .sidebar__navItem--active {
-  background: rgba(255,209,102,0.12);
-  color: var(--gold);
+  background: var(--lavender-tint);
+  color: var(--lavender-deep);
   font-weight: 600;
 }
 
 .sidebar__footer {
   margin-top: auto;
   padding-top: 16px;
-  border-top: 1px solid rgba(255,255,255,0.06);
+  border-top: 1px solid var(--border);
 }
-.sidebar__account { font-size: 12px; color: var(--text-dim); }
-.sidebar__version { font-size: 10.5px; color: #5c6494; margin-top: 4px; }
+.sidebar__account { font-size: 12px; color: var(--ink-dim); }
+.sidebar__version { font-size: 10.5px; color: var(--ink-faint); margin-top: 4px; }
