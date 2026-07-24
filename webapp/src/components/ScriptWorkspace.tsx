@@ -58,6 +58,19 @@ export function ScriptWorkspace({
     setSyncState(engine.getState());
   }, [engine]);
 
+  useEffect(() => {
+    // `frozen` is a function of wall-clock time (now - lastConfidentMatchAt),
+    // but state only otherwise updates inside onWords. Without this tick, a
+    // genuine silent pause never shows the freeze indicator -- the UI can
+    // only re-read state at the exact moment new speech arrives, which is
+    // also the moment freeze is about to become false again. That defeats
+    // the freeze indicator's whole purpose: telling the presenter, in real
+    // time, that the app is holding position and waiting for them.
+    if (!listening) return;
+    const id = setInterval(() => setSyncState(engine.getState()), 300);
+    return () => clearInterval(id);
+  }, [listening, engine]);
+
   function handleStart() {
     // This beta build's only recognizer (the browser's Web Speech API) is not
     // guaranteed on-device -- in Chrome/Edge it streams audio to Google's

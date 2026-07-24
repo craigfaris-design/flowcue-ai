@@ -109,6 +109,20 @@ export class SyncEngine {
 
   private scoreCandidate(startIdx: number): number {
     const n = this.spokenBuffer.length;
+
+    // The most recently spoken word must plausibly match this candidate's
+    // implied position, or the candidate is disqualified outright. Without
+    // this, a candidate can look "confident" purely from stale words earlier
+    // in the rolling buffer -- e.g. the tail end of words spoken before an
+    // ad-lib began -- letting the cursor creep forward one token per ad-lib
+    // word even though nothing new was actually recognized there (up to
+    // ceil(matchWindowSize * confidenceThreshold) - 1 stale words can still
+    // out-vote a single fresh mismatch). Anchoring on the newest word ties
+    // the score to what the speaker is saying right now, not what they said
+    // several words ago that happens to still be sitting in the buffer.
+    const lastToken = this.tokens[startIdx + n - 1];
+    if (!lastToken || !wordsMatch(this.spokenBuffer[n - 1], lastToken.norm)) return 0;
+
     let matches = 0;
     for (let i = 0; i < n; i++) {
       const t = this.tokens[startIdx + i];
