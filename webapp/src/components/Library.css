@@ -8,6 +8,8 @@
   align-items: center;
   justify-content: space-between;
   margin-bottom: 28px;
+  flex-wrap: wrap;
+  gap: 12px;
 }
 .library__header h1 {
   font-size: 26px;
@@ -108,3 +110,7 @@
 .btn--primary { background: linear-gradient(135deg, var(--lavender-strong), var(--lavender)); color: var(--white); }
 .btn--secondary { background: var(--lavender-tint); color: var(--lavender); }
 .btn--danger { background: var(--coral-tint); color: var(--coral); }
+
+@media (max-width: 720px) {
+  .library { padding: 20px; }
+}

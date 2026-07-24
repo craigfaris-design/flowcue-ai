@@ -33,3 +33,8 @@
 .word--active { color: var(--peach); text-shadow: 0 0 16px rgba(255,177,153,0.4); }
 
 .rehearsalStage__empty { color: var(--text-dim); font-size: 14px; }
+
+@media (max-width: 720px) {
+  .rehearsalStage { padding: 24px 20px; }
+  .rehearsalStage__text { font-size: 21px; line-height: 1.7; }
+}

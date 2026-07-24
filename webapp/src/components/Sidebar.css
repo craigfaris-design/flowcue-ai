@@ -53,3 +53,22 @@
 }
 .sidebar__account { font-size: 12px; color: var(--text-dim); }
 .sidebar__version { font-size: 10.5px; color: var(--text-faint); margin-top: 4px; }
+
+@media (max-width: 720px) {
+  .sidebar {
+    width: 100%;
+    min-width: 0;
+    flex-direction: row;
+    align-items: center;
+    justify-content: space-between;
+    padding: 10px 16px;
+    border-right: none;
+    border-bottom: 1px solid var(--border);
+  }
+  .sidebar__brand { padding: 0; font-size: 14px; }
+  .sidebar__nav { flex-direction: row; gap: 4px; }
+  .sidebar__navItem { padding: 8px 10px; font-size: 13px; }
+  /* Account/version is low-priority chrome on a phone-width screen -- drop it
+     rather than shrink the tap targets above it to make room. */
+  .sidebar__footer { display: none; }
+}

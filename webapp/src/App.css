@@ -10,3 +10,9 @@
   background: var(--bg);
   min-width: 0;
 }
+
+@media (max-width: 720px) {
+  .app {
+    flex-direction: column;
+  }
+}

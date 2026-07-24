@@ -99,3 +99,18 @@
   color: var(--text-dim);
   cursor: pointer;
 }
+
+@media (max-width: 720px) {
+  .workspace__header { padding: 12px 16px; gap: 12px; }
+  .workspace__editor { padding: 16px; }
+  .workspace__body {
+    flex-direction: column;
+  }
+  .workspace__panel {
+    width: 100%;
+    min-width: 0;
+    border-right: none;
+    border-bottom: 1px solid var(--border);
+    overflow-y: visible;
+  }
+}

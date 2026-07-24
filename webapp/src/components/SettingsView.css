@@ -27,3 +27,7 @@
   border-color: var(--lavender);
 }
 .switchRow--light { color: var(--text); }
+
+@media (max-width: 720px) {
+  .settingsView { padding: 20px; }
+}
