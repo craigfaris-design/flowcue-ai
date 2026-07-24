@@ -34,7 +34,7 @@ export function ScriptWorkspace({ script, defaultVisualMode, onBack, onScriptUpd
 
   const sessionRef = useRef({ startedAt: 0, wordCount: 0, fillerCount: 0 });
 
-  const { listening, supported, start, stop } = useSpeechRecognition({
+  const { listening, supported, error: recognitionError, start, stop } = useSpeechRecognition({
     onWords: (words) => {
       words.forEach((w) => {
         sessionRef.current.wordCount++;
@@ -155,6 +155,11 @@ export function ScriptWorkspace({ script, defaultVisualMode, onBack, onScriptUpd
               {!supported && (
                 <div className="panelCard__warning">
                   This browser doesn't support live speech recognition (Chrome/Edge recommended).
+                </div>
+              )}
+              {supported && recognitionError && (
+                <div className="panelCard__warning" role="alert">
+                  {recognitionError}
                 </div>
               )}
               <div className={"panelCard__status" + (listening ? " panelCard__status--live" : "")}>

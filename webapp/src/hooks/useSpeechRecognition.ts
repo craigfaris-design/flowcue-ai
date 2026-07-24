@@ -21,6 +21,19 @@ interface SpeechRecognitionLike extends EventTarget {
   onend: (() => void) | null;
 }
 
+// Errors that mean the mic will never come back on its own (permission
+// denied/revoked, no mic present, or the browser blocked the service) --
+// retrying onend just spams getUserMedia prompts. Everything else
+// (no-speech, aborted, transient network blips) is expected and self-heals
+// via the existing onend restart loop.
+const FATAL_ERRORS = new Set(["not-allowed", "service-not-allowed", "audio-capture"]);
+
+const ERROR_MESSAGES: Record<string, string> = {
+  "not-allowed": "Microphone access was denied. Live cueing is stopped -- allow mic access and press Start again.",
+  "service-not-allowed": "Speech recognition was blocked by the browser. Live cueing is stopped.",
+  "audio-capture": "No microphone was found. Live cueing is stopped.",
+};
+
 declare global {
   interface Window {
     SpeechRecognition?: new () => SpeechRecognitionLike;
@@ -35,6 +48,7 @@ export interface UseSpeechRecognitionOptions {
 export function useSpeechRecognition({ onWords }: UseSpeechRecognitionOptions) {
   const [listening, setListening] = useState(false);
   const [supported, setSupported] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   const recognitionRef = useRef<SpeechRecognitionLike | null>(null);
   const listeningRef = useRef(false);
   const lastInterimLengthRef = useRef(0);
@@ -52,6 +66,7 @@ export function useSpeechRecognition({ onWords }: UseSpeechRecognitionOptions) {
       setSupported(false);
       return;
     }
+    setError(null);
     const recognition = new SR();
     recognition.continuous = true;
     recognition.interimResults = true;
@@ -77,8 +92,13 @@ export function useSpeechRecognition({ onWords }: UseSpeechRecognitionOptions) {
         lastInterimLengthRef.current = words.length;
       }
     };
-    recognition.onerror = () => {
-      /* transient recognition errors are expected (silence timeouts, etc.) */
+    recognition.onerror = (event) => {
+      if (FATAL_ERRORS.has(event.error)) {
+        listeningRef.current = false;
+        setListening(false);
+        setError(ERROR_MESSAGES[event.error] ?? "Live cueing stopped due to a speech recognition error.");
+      }
+      /* everything else (no-speech, aborted, network) is transient -- onend's restart loop handles it */
     };
     recognition.onend = () => {
       if (listeningRef.current) {
@@ -104,5 +124,5 @@ export function useSpeechRecognition({ onWords }: UseSpeechRecognitionOptions) {
 
   useEffect(() => () => stop(), [stop]);
 
-  return { listening, supported, start, stop };
+  return { listening, supported, error, start, stop };
 }
