@@ -1,0 +1,15 @@
+services:
+  postgres:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: flowcue
+      POSTGRES_PASSWORD: flowcue
+      POSTGRES_DB: flowcue
+    ports:
+      - "5432:5432"
+    volumes:
+      - flowcue_pgdata:/var/lib/postgresql/data
+
+volumes:
+  flowcue_pgdata:
