@@ -1,0 +1,29 @@
+.settingsView {
+  padding: 36px 44px;
+  max-width: 640px;
+}
+.settingsView h1 {
+  font-size: 26px;
+  color: var(--navy);
+  margin: 0 0 24px;
+  font-family: Cambria, Georgia, serif;
+}
+.settingsCard {
+  background: var(--card-bg-light);
+  border-radius: var(--radius-md);
+  padding: 18px 20px;
+  margin-bottom: 16px;
+}
+.settingsCard h3 { margin: 0 0 6px; font-size: 14px; color: var(--navy); }
+.settingsCard p { margin: 0 0 12px; font-size: 12.5px; color: #6b7280; line-height: 1.5; }
+
+.toggleGroup--light .toggle--light {
+  background: #eef1fa;
+  color: #4b5468;
+}
+.toggleGroup--light .toggle--active {
+  background: rgba(30,39,97,0.1);
+  color: var(--navy);
+  border-color: var(--navy);
+}
+.switchRow--light { color: #374151; }

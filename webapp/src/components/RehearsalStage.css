@@ -1,0 +1,35 @@
+.rehearsalStage {
+  flex: 1;
+  overflow-y: auto;
+  padding: 48px 64px;
+  position: relative;
+}
+
+.rehearsalStage__freeze {
+  position: sticky;
+  top: 0;
+  margin-bottom: 16px;
+  background: rgba(255,107,107,0.12);
+  border: 1px solid rgba(255,107,107,0.35);
+  color: #ff9b9b;
+  font-size: 13px;
+  padding: 8px 14px;
+  border-radius: 8px;
+  z-index: 5;
+}
+
+.rehearsalStage__text {
+  max-width: 780px;
+  font-size: 27px;
+  line-height: 1.85;
+}
+
+.sentence { color: rgba(255,255,255,0.28); transition: color 0.25s ease; }
+.sentence--active { color: var(--text); text-shadow: 0 0 22px rgba(202,220,252,0.2); }
+.sentence--done { color: rgba(255,255,255,0.14); }
+
+.word { cursor: pointer; border-radius: 4px; padding: 0 1px; }
+.word:hover { background: rgba(255,255,255,0.08); }
+.word--active { color: var(--gold); text-shadow: 0 0 16px rgba(255,209,102,0.4); }
+
+.rehearsalStage__empty { color: var(--text-dim); font-size: 14px; }

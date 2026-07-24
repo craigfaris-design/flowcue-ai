@@ -1,0 +1,101 @@
+.workspace {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  background: var(--navy);
+}
+
+.workspace__header {
+  display: flex;
+  align-items: center;
+  gap: 18px;
+  padding: 16px 24px;
+  border-bottom: 1px solid rgba(255,255,255,0.08);
+}
+.workspace__back {
+  background: none;
+  border: none;
+  color: var(--text-dim);
+  font-size: 13px;
+  cursor: pointer;
+}
+.workspace__back:hover { color: var(--white); }
+.workspace__title { font-weight: 700; color: var(--white); font-size: 16px; flex: 1; }
+.workspace__headerActions { display: flex; gap: 8px; }
+
+.workspace__editor {
+  padding: 24px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  max-width: 780px;
+}
+.workspace__editor .scriptForm__title {
+  background: var(--panel);
+  color: var(--white);
+  border: 1px solid rgba(255,255,255,0.12);
+}
+.workspace__editor .scriptForm__body {
+  background: var(--panel);
+  color: var(--text);
+  border: 1px solid rgba(255,255,255,0.12);
+  min-height: 400px;
+}
+
+.workspace__body {
+  flex: 1;
+  display: flex;
+  min-height: 0;
+}
+
+.workspace__panel {
+  width: 300px;
+  min-width: 300px;
+  padding: 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  overflow-y: auto;
+  border-right: 1px solid rgba(255,255,255,0.06);
+}
+
+.panelCard {
+  background: var(--panel);
+  border-radius: var(--radius-md);
+  padding: 14px;
+}
+.panelCard h3 {
+  margin: 0 0 10px;
+  font-size: 11.5px;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--text-dim);
+}
+.panelCard__row { display: flex; gap: 8px; flex-wrap: wrap; }
+.panelCard__warning { font-size: 11.5px; color: var(--text-dim); margin-top: 8px; line-height: 1.4; }
+.panelCard__status { margin-top: 10px; font-size: 12px; color: var(--text-dim); }
+.panelCard__status--live { color: var(--ok); font-weight: 600; }
+.panelCard__disclosure { margin-top: 10px; font-size: 10.5px; color: var(--text-dim); line-height: 1.4; }
+
+.toggleGroup { display: flex; gap: 8px; }
+.toggle {
+  flex: 1;
+  text-align: center;
+  padding: 8px 6px;
+  border-radius: 8px;
+  background: var(--panel-2);
+  color: var(--text-dim);
+  font-size: 11.5px;
+  cursor: pointer;
+  border: 1px solid transparent;
+}
+.toggle--active { color: var(--text); border-color: var(--gold); background: rgba(255,209,102,0.12); }
+
+.switchRow {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 12.5px;
+  color: var(--text-dim);
+  cursor: pointer;
+}

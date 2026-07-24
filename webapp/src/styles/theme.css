@@ -1,0 +1,38 @@
+:root {
+  --navy: #1e2761;
+  --navy-dark: #141b47;
+  --navy-deep: #0c1030;
+  --ice: #cadcfc;
+  --gold: #ffd166;
+  --white: #ffffff;
+  --text: #eef1f7;
+  --text-dim: #9aa4c2;
+  --panel: #1b2358;
+  --panel-2: #232c66;
+  --card-bg-light: #f5f7fc;
+  --ok: #57cc99;
+  --danger: #ff6b6b;
+  --radius-lg: 16px;
+  --radius-md: 12px;
+  --radius-sm: 8px;
+  font-family: -apple-system, "Segoe UI", Calibri, Helvetica, Arial, sans-serif;
+}
+
+* { box-sizing: border-box; }
+
+html, body, #root {
+  height: 100%;
+  margin: 0;
+}
+
+body {
+  background: var(--navy-deep);
+  color: var(--text);
+}
+
+button {
+  font-family: inherit;
+}
+
+::-webkit-scrollbar { width: 8px; height: 8px; }
+::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.14); border-radius: 8px; }

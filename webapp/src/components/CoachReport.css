@@ -1,0 +1,22 @@
+.coachReport {
+  background: var(--panel);
+  border-radius: var(--radius-md);
+  padding: 16px;
+}
+.coachReport h3 {
+  margin: 0 0 12px;
+  font-size: 12px;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--text-dim);
+}
+.coachReport__metrics {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+}
+.metric { background: var(--panel-2); border-radius: 8px; padding: 8px 10px; }
+.metric__k { font-size: 10.5px; color: var(--text-dim); text-transform: uppercase; letter-spacing: 0.05em; }
+.metric__v { font-size: 18px; font-weight: 700; margin-top: 2px; color: var(--white); }
+.coachReport__history { margin-top: 16px; }
+.coachReport__historyLabel { font-size: 11px; color: var(--text-dim); margin-bottom: 6px; }
