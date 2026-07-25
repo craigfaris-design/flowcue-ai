@@ -71,7 +71,20 @@ export function Library({ scripts, onOpen, onCreate, onDelete }: LibraryProps) {
       {!creating && (
         <div className="library__grid">
           {scripts.map((s) => (
-            <div key={s.id} className="scriptCard" onClick={() => onOpen(s.id)}>
+            <div
+              key={s.id}
+              className="scriptCard"
+              role="button"
+              tabIndex={0}
+              onClick={() => onOpen(s.id)}
+              onKeyDown={(e) => {
+                if (e.key === "Enter" || e.key === " ") {
+                  e.preventDefault();
+                  onOpen(s.id);
+                }
+              }}
+              aria-label={`Open ${s.title}`}
+            >
               <div className="scriptCard__title">{s.title}</div>
               <div className="scriptCard__meta">
                 {wordCount(s.body)} words · updated {relativeDate(s.updatedAt)}

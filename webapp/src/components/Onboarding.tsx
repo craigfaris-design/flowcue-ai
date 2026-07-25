@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import "./Onboarding.css";
 
 interface OnboardingProps {
@@ -23,16 +23,33 @@ const STEPS = [
 export function Onboarding({ onDismiss }: OnboardingProps) {
   const [step, setStep] = useState(0);
   const isLast = step === STEPS.length - 1;
+  const cardRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    cardRef.current?.focus();
+    function handleKeyDown(e: KeyboardEvent) {
+      if (e.key === "Escape") onDismiss();
+    }
+    document.addEventListener("keydown", handleKeyDown);
+    return () => document.removeEventListener("keydown", handleKeyDown);
+  }, [onDismiss]);
 
   return (
     <div className="onboarding">
-      <div className="onboarding__card">
+      <div
+        className="onboarding__card"
+        ref={cardRef}
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="onboarding-title"
+        tabIndex={-1}
+      >
         <div className="onboarding__dots">
           {STEPS.map((_, i) => (
             <span key={i} className={"onboarding__dot" + (i === step ? " onboarding__dot--active" : "")} />
           ))}
         </div>
-        <h2>{STEPS[step].title}</h2>
+        <h2 id="onboarding-title">{STEPS[step].title}</h2>
         <p>{STEPS[step].body}</p>
         <div className="onboarding__actions">
           <button className="btn btn--secondary" onClick={onDismiss}>
