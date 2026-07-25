@@ -18,9 +18,11 @@
   padding: 4px 8px 24px;
 }
 
-.sidebar__dot {
-  width: 10px; height: 10px; border-radius: 50%;
-  background: linear-gradient(135deg, var(--lavender), var(--peach));
+.sidebar__logo {
+  width: 24px;
+  height: 24px;
+  border-radius: 7px;
+  display: block;
 }
 
 .sidebar__nav {

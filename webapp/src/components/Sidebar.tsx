@@ -11,7 +11,7 @@ export function Sidebar({ view, onNavigate }: SidebarProps) {
   return (
     <aside className="sidebar">
       <div className="sidebar__brand">
-        <span className="sidebar__dot" />
+        <img src="/logo.png" alt="" className="sidebar__logo" />
         FlowCue AI
       </div>
       <nav className="sidebar__nav">
