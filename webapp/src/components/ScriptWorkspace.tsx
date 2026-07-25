@@ -215,16 +215,18 @@ export function ScriptWorkspace({
 
             <div className="panelCard">
               <h3>Visual Reading Mode</h3>
-              <div className="toggleGroup">
+              <div className="toggleGroup" role="group" aria-label="Visual reading mode">
                 <button
                   className={"toggle" + (visualMode === "sentence" ? " toggle--active" : "")}
                   onClick={() => setVisualMode("sentence")}
+                  aria-pressed={visualMode === "sentence"}
                 >
                   Sentence glow
                 </button>
                 <button
                   className={"toggle" + (visualMode === "word" ? " toggle--active" : "")}
                   onClick={() => setVisualMode("word")}
+                  aria-pressed={visualMode === "word"}
                 >
                   Word karaoke
                 </button>

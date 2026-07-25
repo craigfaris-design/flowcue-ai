@@ -15,12 +15,13 @@ export function SettingsView({ settings, onChange, onClearAllData }: SettingsVie
       <div className="settingsCard">
         <h3>Default Visual Reading Mode</h3>
         <p>Applies to newly opened scripts. You can still override it per-session.</p>
-        <div className="toggleGroup toggleGroup--light">
+        <div className="toggleGroup toggleGroup--light" role="group" aria-label="Default visual reading mode">
           {(["sentence", "word"] as VisualMode[]).map((m) => (
             <button
               key={m}
               className={"toggle toggle--light" + (settings.visualMode === m ? " toggle--active" : "")}
               onClick={() => onChange({ visualMode: m })}
+              aria-pressed={settings.visualMode === m}
             >
               {m === "sentence" ? "Sentence glow" : "Word karaoke"}
             </button>

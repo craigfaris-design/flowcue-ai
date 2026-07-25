@@ -32,7 +32,9 @@ export function RehearsalStage({ sentences, tokens, state, visualMode, listening
   return (
     <div className="rehearsalStage" ref={stageRef}>
       {state.frozen && listening && (
-        <div className="rehearsalStage__freeze">Holding position — waiting to confidently re-detect where you are.</div>
+        <div className="rehearsalStage__freeze" role="status">
+          Holding position — waiting to confidently re-detect where you are.
+        </div>
       )}
       <div className="rehearsalStage__text">
         {sentences.map((sentenceText, sIdx) => {

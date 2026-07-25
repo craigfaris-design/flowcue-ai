@@ -18,6 +18,28 @@ describe("App smoke test", () => {
     expect(screen.queryByText(/FlowCue AI listens, and never loses your place\./)).not.toBeInTheDocument();
   });
 
+  it("dismisses onboarding with the Escape key, for keyboard/screen-reader users", () => {
+    render(<App />);
+    expect(screen.getByRole("dialog")).toBeInTheDocument();
+    fireEvent.keyDown(document, { key: "Escape" });
+    expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+  });
+
+  it("opens a script card via the keyboard (Enter), not just a mouse click", () => {
+    render(<App />);
+    dismissOnboarding();
+    fireEvent.click(screen.getByText("Try a sample script"));
+    fireEvent.click(screen.getByText("Save Script"));
+    fireEvent.click(screen.getByText("← Scripts"));
+
+    const card = screen.getByRole("button", { name: /Open Sarah's Wedding Toast/i });
+    fireEvent.keyDown(card, { key: "Enter" });
+    expect(screen.getByText("Sarah's Wedding Toast")).toBeInTheDocument();
+    // Distinguishes "opened the workspace" from "still on the library card":
+    // the workspace header renders a back button the library never does.
+    expect(screen.getByText("← Scripts")).toBeInTheDocument();
+  });
+
   it("starts with an empty library, and creating a sample script opens the workspace", () => {
     render(<App />);
     dismissOnboarding();
