@@ -51,7 +51,6 @@ export function useSpeechRecognition({ onWords }: UseSpeechRecognitionOptions) {
   const [error, setError] = useState<string | null>(null);
   const recognitionRef = useRef<SpeechRecognitionLike | null>(null);
   const listeningRef = useRef(false);
-  const lastInterimLengthRef = useRef(0);
   const onWordsRef = useRef(onWords);
   onWordsRef.current = onWords;
 
@@ -72,24 +71,31 @@ export function useSpeechRecognition({ onWords }: UseSpeechRecognitionOptions) {
     recognition.interimResults = true;
     recognition.lang = "en-US";
 
+    // Tracks how many words have already been emitted for each in-progress
+    // result index. A real recognizer streams the same segment repeatedly as
+    // interim guesses firm up ("I" -> "I want" -> "I want to" ...), then fires
+    // it ONE MORE TIME in full once isFinal flips true -- that final event is
+    // not new speech, it's the same segment being confirmed. Re-sending the
+    // whole text there (as this used to) double-feeds every word in it right
+    // as the engine's match buffer, which is exactly when a real speaker
+    // pauses (isFinal fires on pauses), corrupting the buffer at the worst
+    // possible moment and showing up as spurious freezes. Only ever emit the
+    // delta beyond what this exact result index has already sent.
+    const emittedByResultIndex = new Map<number, number>();
+
     recognition.onresult = (event) => {
-      let interim = "";
       for (let i = event.resultIndex; i < event.results.length; i++) {
         const result = event.results[i];
-        const text = result[0].transcript;
-        if (result.isFinal) {
-          const words = text.trim().split(/\s+/).filter(Boolean);
-          if (words.length) onWordsRef.current(words);
-          lastInterimLengthRef.current = 0;
-        } else {
-          interim += text;
-        }
-      }
-      if (interim) {
-        const words = interim.trim().split(/\s+/).filter(Boolean);
-        const newWords = words.slice(lastInterimLengthRef.current);
+        const words = result[0].transcript.trim().split(/\s+/).filter(Boolean);
+        const alreadyEmitted = emittedByResultIndex.get(i) ?? 0;
+        const newWords = words.slice(alreadyEmitted);
         if (newWords.length) onWordsRef.current(newWords);
-        lastInterimLengthRef.current = words.length;
+
+        if (result.isFinal) {
+          emittedByResultIndex.delete(i);
+        } else {
+          emittedByResultIndex.set(i, words.length);
+        }
       }
     };
     recognition.onerror = (event) => {
