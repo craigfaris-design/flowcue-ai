@@ -99,12 +99,19 @@ export class SyncEngine {
   private cursor = -1;
   private lastConfidentMatchAt = Date.now();
   private spokenBuffer: string[] = [];
+  // Last token's globalIndex per sentence, so getState() can tell "the
+  // cursor just landed on the final word of its sentence" in O(1).
+  private sentenceEndIndex: number[];
 
   constructor(scriptText: string, options?: SyncEngineOptions) {
     this.opts = { ...DEFAULT_OPTIONS, ...options };
     const { sentences, tokens } = tokenizeScript(scriptText);
     this.sentences = sentences;
     this.tokens = tokens;
+    this.sentenceEndIndex = sentences.map(() => -1);
+    tokens.forEach((t) => {
+      this.sentenceEndIndex[t.sentenceIndex] = t.globalIndex;
+    });
   }
 
   private scoreCandidate(startIdx: number): number {
@@ -171,9 +178,29 @@ export class SyncEngine {
   getState(): SyncState {
     const frozen = Date.now() - this.lastConfidentMatchAt > this.opts.freezeAfterMs;
     const currentToken = this.tokens[Math.max(this.cursor, 0)];
+    let sentenceIndex = currentToken ? currentToken.sentenceIndex : 0;
+
+    // The instant the speaker's last confirmed word completes a sentence,
+    // advance the *displayed* highlight to the next one immediately, rather
+    // than waiting for words from that next sentence to arrive and confirm
+    // it. That wait is what made the cue visibly lag a sentence behind a
+    // speaker reading straight through -- the single most common case --
+    // even though the engine already knows exactly where they're going
+    // next. This only changes what's shown as "active" while otherwise
+    // idle; the underlying cursor and search/correction logic (skips,
+    // backtracks, ad-libs) is untouched, so a real deviation still corrects
+    // itself the same way it always has.
+    if (
+      this.cursor >= 0 &&
+      this.cursor === this.sentenceEndIndex[sentenceIndex] &&
+      sentenceIndex < this.sentences.length - 1
+    ) {
+      sentenceIndex += 1;
+    }
+
     return {
       cursorTokenIndex: this.cursor,
-      sentenceIndex: currentToken ? currentToken.sentenceIndex : 0,
+      sentenceIndex,
       frozen,
       totalTokens: this.tokens.length,
       totalSentences: this.sentences.length,

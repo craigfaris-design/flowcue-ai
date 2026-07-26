@@ -16,8 +16,18 @@ function speak(engine: SyncEngine, words: string[]) {
 describe("SyncEngine", () => {
   it("tracks forward during normal linear reading", () => {
     const engine = new SyncEngine(script);
-    speak(engine, "Good evening everyone and thank you for being here tonight".split(" "));
+    speak(engine, "Good evening everyone and thank you for being here".split(" "));
     expect(engine.getState().sentenceIndex).toBe(0);
+  });
+
+  it("highlights the next sentence the instant the current one completes, before any word of it is spoken", () => {
+    const engine = new SyncEngine(script);
+    speak(engine, "Good evening everyone and thank you for being here tonight".split(" "));
+    // Not a single word of sentence 1 has been spoken -- the display must
+    // already be waiting on it, not lagging on the just-finished sentence 0
+    // until words of sentence 1 arrive to "confirm" it.
+    expect(engine.getState().sentenceIndex).toBe(1);
+    expect(engine.getState().frozen).toBe(false);
   });
 
   it("recovers from a skip-ahead within the target sentence", () => {
@@ -48,7 +58,7 @@ describe("SyncEngine", () => {
 
   it("tolerates minor misrecognition via fuzzy matching", () => {
     const engine = new SyncEngine(script);
-    speak(engine, "When Sarah first told me she was getting marreid I honestly did not beleive her".split(" "));
+    speak(engine, "When Sarah first told me she was getting marreid I honestly did not beleive".split(" "));
     expect(engine.getState().sentenceIndex).toBe(1);
   });
 
