@@ -22,7 +22,10 @@ export function RehearsalStage({ sentences, tokens, state, visualMode, listening
       lastScrolledSentence.current = state.sentenceIndex;
       const el = stageRef.current?.querySelector(`[data-sentence-idx="${state.sentenceIndex}"]`);
       if (el && typeof el.scrollIntoView === "function") {
-        el.scrollIntoView({ behavior: "smooth", block: "center" });
+        // "auto" (instant jump), not "smooth" -- a animated scroll takes a
+        // browser-controlled few hundred ms to complete, which is exactly
+        // the kind of visible lag the live-cueing engine promises to avoid.
+        el.scrollIntoView({ behavior: "auto", block: "center" });
       }
     }
   }, [state.sentenceIndex]);

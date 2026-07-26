@@ -24,7 +24,7 @@
   line-height: 1.85;
 }
 
-.sentence { color: var(--text-faint); transition: color 0.25s ease; }
+.sentence { color: var(--text-faint); }
 .sentence--active { color: var(--text); text-shadow: 0 0 22px rgba(165,148,224,0.25); }
 .sentence--done { color: var(--text-faintest); }
 
