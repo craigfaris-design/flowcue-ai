@@ -41,6 +41,13 @@ export function ScriptWorkspace({
   const [syncState, setSyncState] = useState<SyncState>(() => engine.getState());
 
   const sessionRef = useRef({ startedAt: 0, wordCount: 0, fillerCount: 0 });
+  // Surfaces exactly what the recognizer is actually hearing, independent of
+  // whether it matches the script. Without this, "frozen" is ambiguous: is
+  // the mic not picking up speech at all, or is it hearing words that just
+  // aren't confidently matching? This makes that distinction visible instead
+  // of leaving the presenter (or anyone debugging a report of it) to guess.
+  const [lastHeard, setLastHeard] = useState("");
+  const lastHeardWordsRef = useRef<string[]>([]);
 
   const { listening, supported, error: recognitionError, start, stop } = useSpeechRecognition({
     onWords: (words) => {
@@ -49,6 +56,8 @@ export function ScriptWorkspace({
         if (FILLER_WORDS.has(w.toLowerCase())) sessionRef.current.fillerCount++;
         engine.ingestWord(w);
       });
+      lastHeardWordsRef.current = [...lastHeardWordsRef.current, ...words].slice(-8);
+      setLastHeard(lastHeardWordsRef.current.join(" "));
       setSyncState(engine.getState());
     },
   });
@@ -82,6 +91,8 @@ export function ScriptWorkspace({
     if (offlineModeEnabled) return;
     sessionRef.current = { startedAt: Date.now(), wordCount: 0, fillerCount: 0 };
     setLatestSession(null);
+    lastHeardWordsRef.current = [];
+    setLastHeard("");
     start();
   }
 
@@ -112,6 +123,8 @@ export function ScriptWorkspace({
     engine.reset();
     setSyncState(engine.getState());
     setLatestSession(null);
+    lastHeardWordsRef.current = [];
+    setLastHeard("");
   }
 
   function saveEdits() {
@@ -205,6 +218,11 @@ export function ScriptWorkspace({
               <div className={"panelCard__status" + (listening ? " panelCard__status--live" : "")}>
                 {listening ? "● Listening" : "Stopped"}
               </div>
+              {listening && (
+                <div className="panelCard__lastHeard" aria-live="polite">
+                  Last heard: <span>{lastHeard || "(nothing yet -- check mic input)"}</span>
+                </div>
+              )}
               <div className="panelCard__disclosure">
                 This beta build uses your browser's built-in speech recognition. In most browsers
                 (e.g. Chrome), that means audio is sent to the browser vendor's cloud service for

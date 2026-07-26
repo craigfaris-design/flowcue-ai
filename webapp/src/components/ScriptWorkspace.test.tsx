@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
-import { render, screen, fireEvent } from "@testing-library/react";
+import { render, screen, fireEvent, act } from "@testing-library/react";
 import { ScriptWorkspace } from "./ScriptWorkspace";
 import type { Script } from "../lib/types";
 
@@ -16,7 +16,7 @@ class MockRecognition {
   continuous = false;
   interimResults = false;
   lang = "";
-  onresult: (() => void) | null = null;
+  onresult: ((event: unknown) => void) | null = null;
   onerror: (() => void) | null = null;
   onend: (() => void) | null = null;
   start = vi.fn();
@@ -28,10 +28,14 @@ class MockRecognition {
   }
 }
 
+let lastInstance: MockRecognition | null = null;
+
 beforeEach(() => {
   localStorage.clear();
+  lastInstance = null;
   window.SpeechRecognition = vi.fn(function (this: MockRecognition) {
-    return new MockRecognition();
+    lastInstance = new MockRecognition();
+    return lastInstance;
   }) as unknown as new () => MockRecognition;
 });
 
@@ -94,5 +98,28 @@ describe("ScriptWorkspace offline mode", () => {
 
     expect(screen.getByText(/audio is sent to the browser vendor's cloud service/)).toBeInTheDocument();
     expect(screen.queryByText(/not stored or sent anywhere by default/)).not.toBeInTheDocument();
+  });
+
+  it("shows what the recognizer actually heard, distinguishing 'mic not picking up speech' from 'words not matching'", () => {
+    render(
+      <ScriptWorkspace
+        script={script}
+        defaultVisualMode="sentence"
+        offlineModeEnabled={false}
+        onBack={noop}
+        onScriptUpdated={noop}
+        onScriptDeleted={noop}
+      />
+    );
+
+    fireEvent.click(screen.getByText("▶ Start Listening"));
+    expect(screen.getByText(/nothing yet -- check mic input/)).toBeInTheDocument();
+
+    act(() => {
+      lastInstance!.onresult?.({ resultIndex: 0, results: [{ isFinal: true, 0: { transcript: "good evening everyone" } }] });
+    });
+
+    expect(screen.getByText("good evening everyone")).toBeInTheDocument();
+    expect(screen.queryByText(/nothing yet/)).not.toBeInTheDocument();
   });
 });

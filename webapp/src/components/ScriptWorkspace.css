@@ -76,6 +76,15 @@
 .panelCard__status { margin-top: 10px; font-size: 12px; color: var(--text-dim); }
 .panelCard__status--live { color: var(--mint); font-weight: 600; }
 .panelCard__disclosure { margin-top: 10px; font-size: 10.5px; color: var(--text-dim); line-height: 1.4; }
+.panelCard__lastHeard {
+  margin-top: 10px;
+  font-size: 11px;
+  color: var(--text-dim);
+  line-height: 1.4;
+  padding-top: 8px;
+  border-top: 1px solid var(--border);
+}
+.panelCard__lastHeard span { color: var(--text); font-weight: 600; }
 
 .toggleGroup { display: flex; gap: 8px; }
 .toggle {
