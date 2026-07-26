@@ -20,9 +20,16 @@ minimal offline-capable app shell.
   scaffold of that backend already exists at `../server/` (Express +
   PostgreSQL) but is deliberately not wired up yet — the beta is staying on
   `localStorage` on purpose (see the Decision Log) until that's revisited.
-- Live speech recognition uses the browser's built-in Web Speech API (Chrome/
-  Edge), same caveat as the original MVP: production should use the hybrid
-  on-device + Deepgram/AssemblyAI pipeline described in the architecture doc.
+- **Real:** low-latency speech recognition via Deepgram (`src/hooks/useDeepgramRecognition.ts`),
+  streamed through FlowCue AI's own backend relay (`../server/src/sttRelay.ts`)
+  so the API key never reaches the browser -- see `../server/README.md` to
+  enable it (needs a free Deepgram account). Falls back automatically to the
+  browser's built-in Web Speech API (`src/hooks/useSpeechRecognition.ts`,
+  Chrome/Edge only, no SLA) if Deepgram isn't reachable/configured --
+  `src/hooks/useLiveRecognition.ts` is the seam that picks between them and
+  is what components actually use. On-device recognition (the other half of
+  the hybrid architecture the Technical Architecture doc describes) isn't
+  built yet.
 
 ## Running it
 
@@ -32,6 +39,11 @@ npm run dev       # starts a local dev server, prints a URL to open
 ```
 
 Then open the printed URL (typically http://localhost:5173) in Chrome or Edge.
+
+For low-latency cueing (Deepgram instead of the browser's built-in
+recognizer), also run the backend relay -- see `../server/README.md`
+("Enabling low-latency speech recognition"). Not required: without it, live
+cueing still works via the browser fallback, and the UI says so.
 
 To test on a real phone over the same Wi-Fi network, live speech recognition
 needs a secure context (see "What's real vs. simulated" -- `localhost` is
@@ -44,7 +56,12 @@ HTTPS=true npm run dev    # serves over a self-signed cert on the LAN address to
 Expect a "connection is not private" warning on the phone/desktop browser on
 first load -- that's the self-signed cert, not a real problem; proceed past
 it. iPhone Safari doesn't support the Web Speech API at all (see below), so
-live cueing specifically won't work there regardless.
+the browser-fallback path specifically won't work there regardless (Deepgram
+still would, if the relay is running).
+
+If also running the backend relay for Deepgram, it needs `HTTPS=true` too in
+that case (see `../server/README.md`) -- a page served over HTTPS can't open
+a plain `ws://` connection to it (mixed content).
 
 ## Testing
 
@@ -54,16 +71,20 @@ npm run test       # vitest: engine unit tests, storage tests, and a React
 npm run build       # typecheck + production build
 ```
 
-42 tests currently pass: 7 original sync-engine scenarios (linear reading,
-skip-ahead, repeated line, backtrack, misrecognition, off-script freeze,
-reset) plus 11 adversarial ones added under real-world stress testing
+57 tests currently pass: 8 sync-engine linear/anticipatory-highlight
+scenarios, 13 adversarial ones added under real-world stress testing
 (stutters, double-fired words, large jumps, punctuation/contractions, a full
-linear read-through, repeated-refrain bias, and ad-libs that must not cause
-silent drift), 4 pronunciation-assistant tests, 6 storage/persistence tests,
-3 mic-error-handling tests, 3 offline-mode UI tests, and 8 end-to-end UI
-smoke tests (onboarding incl. Escape-to-dismiss, keyboard script-card
-navigation, script creation, rehearsal stage rendering, pronunciation
-popover, settings, deletion).
+linear read-through, repeated-refrain bias, ad-libs that must not cause
+silent drift, ordinary pauses that must not falsely freeze, and one isolated
+misrecognized word that must not stall tracking), 4 pronunciation-assistant
+tests, 6 storage/persistence tests, 7 Web-Speech-API tests (mic-error
+handling plus interim/final word streaming without duplication), 6
+Deepgram-hook tests (the same interim/final streaming correctness, plus
+relay-error surfacing and mic-denial), 5 ScriptWorkspace UI tests (offline
+mode, Deepgram/fallback disclosure text, the "last heard" readout), and 8
+end-to-end UI smoke tests (onboarding incl. Escape-to-dismiss, keyboard
+script-card navigation, script creation, rehearsal stage rendering,
+pronunciation popover, settings, deletion).
 
 ## Project layout
 
@@ -71,7 +92,9 @@ popover, settings, deletion).
 src/
   engine/       sync engine + pronunciation assistant (pure logic, unit tested)
   lib/          types + localStorage-backed persistence layer
-  hooks/        useSpeechRecognition (Web Speech API wrapper)
+  hooks/        useLiveRecognition (picks a provider, used by components) ->
+                useDeepgramRecognition (relay-streamed, low-latency) with
+                automatic fallback to useSpeechRecognition (Web Speech API)
   components/   Sidebar, Library, ScriptWorkspace, RehearsalStage,
                 PronunciationPopover, CoachReport, SessionHistoryChart,
                 SettingsView, Onboarding

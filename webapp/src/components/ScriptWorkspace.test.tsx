@@ -84,7 +84,7 @@ describe("ScriptWorkspace offline mode", () => {
     expect(screen.getByText("Stopped")).toBeInTheDocument();
   });
 
-  it("disclosure text accurately describes cloud-based recognition, not 'never sent anywhere'", () => {
+  it("disclosure text describes Deepgram by default, not 'never sent anywhere'", () => {
     render(
       <ScriptWorkspace
         script={script}
@@ -96,8 +96,29 @@ describe("ScriptWorkspace offline mode", () => {
       />
     );
 
-    expect(screen.getByText(/audio is sent to the browser vendor's cloud service/)).toBeInTheDocument();
+    expect(screen.getByText(/Audio streams to Deepgram for low-latency transcription/)).toBeInTheDocument();
     expect(screen.queryByText(/not stored or sent anywhere by default/)).not.toBeInTheDocument();
+  });
+
+  it("falls back to the browser recognizer (and says so) when Deepgram isn't usable", () => {
+    // jsdom has no getUserMedia/MediaRecorder, so Deepgram is never
+    // "supported" here -- exercises the exact fallback path a real browser
+    // would take if the relay/API key isn't reachable.
+    render(
+      <ScriptWorkspace
+        script={script}
+        defaultVisualMode="sentence"
+        offlineModeEnabled={false}
+        onBack={noop}
+        onScriptUpdated={noop}
+        onScriptDeleted={noop}
+      />
+    );
+
+    fireEvent.click(screen.getByText("▶ Start Listening"));
+
+    expect(screen.getByText(/\(browser fallback\)/)).toBeInTheDocument();
+    expect(screen.getByText(/browser's built-in speech recognition/)).toBeInTheDocument();
   });
 
   it("shows what the recognizer actually heard, distinguishing 'mic not picking up speech' from 'words not matching'", () => {

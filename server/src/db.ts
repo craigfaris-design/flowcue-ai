@@ -4,10 +4,12 @@ import { Pool } from "pg";
 export function createPool(): Pool {
   const connectionString = process.env.DATABASE_URL;
   if (!connectionString) {
-    throw new Error(
-      "DATABASE_URL is not set. Copy .env.example to .env and point it at a Postgres instance " +
-        "(see docker-compose.yml for local dev: `docker compose up -d`)."
-    );
+    // Don't hard-fail server startup over a missing database: features that
+    // don't touch it (the Deepgram STT relay, for one) shouldn't require
+    // Postgres to be set up first. `pg.Pool` connects lazily, so this is
+    // inert until something actually queries it -- at which point it fails
+    // with a normal, clear connection error, scoped to just that request.
+    return new Pool({ connectionString: "postgres://unconfigured/unconfigured" });
   }
   return new Pool({ connectionString });
 }

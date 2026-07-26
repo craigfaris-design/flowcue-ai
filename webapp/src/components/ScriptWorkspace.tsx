@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { SyncEngine, type SyncState } from "../engine/syncEngine";
-import { useSpeechRecognition } from "../hooks/useSpeechRecognition";
+import { useLiveRecognition } from "../hooks/useLiveRecognition";
 import type { Script, SessionRecord, VisualMode } from "../lib/types";
 import * as storage from "../lib/storage";
 import { RehearsalStage } from "./RehearsalStage";
@@ -49,7 +49,7 @@ export function ScriptWorkspace({
   const [lastHeard, setLastHeard] = useState("");
   const lastHeardWordsRef = useRef<string[]>([]);
 
-  const { listening, supported, error: recognitionError, start, stop } = useSpeechRecognition({
+  const { listening, supported, error: recognitionError, usingFallback, start, stop } = useLiveRecognition({
     onWords: (words) => {
       words.forEach((w) => {
         sessionRef.current.wordCount++;
@@ -81,13 +81,13 @@ export function ScriptWorkspace({
   }, [listening, engine]);
 
   function handleStart() {
-    // This beta build's only recognizer (the browser's Web Speech API) is not
-    // guaranteed on-device -- in Chrome/Edge it streams audio to Google's
-    // cloud service. If the user has opted into Offline Mode (privacy-
-    // sensitive use cases per the Technical Architecture doc), silently
-    // starting cloud-dependent recognition anyway would violate that choice,
-    // so refuse rather than guess. See the `!supported || offlineModeEnabled`
-    // guard on the Start button below.
+    // Neither of this beta's recognizers is on-device: Deepgram is cloud-only
+    // by design, and its fallback (the browser's Web Speech API) streams
+    // audio to the browser vendor's cloud service. If the user has opted
+    // into Offline Mode (privacy-sensitive use cases per the Technical
+    // Architecture doc), silently starting cloud-dependent recognition
+    // anyway would violate that choice, so refuse rather than guess. See the
+    // `!supported || offlineModeEnabled` guard on the Start button below.
     if (offlineModeEnabled) return;
     sessionRef.current = { startedAt: Date.now(), wordCount: 0, fillerCount: 0 };
     setLatestSession(null);
@@ -200,7 +200,8 @@ export function ScriptWorkspace({
               </div>
               {!supported && (
                 <div className="panelCard__warning">
-                  This browser doesn't support live speech recognition (Chrome/Edge recommended).
+                  This browser doesn't support live speech recognition (mic access, or Chrome/Edge for
+                  the fallback recognizer, is required).
                 </div>
               )}
               {supported && offlineModeEnabled && (
@@ -217,6 +218,7 @@ export function ScriptWorkspace({
               )}
               <div className={"panelCard__status" + (listening ? " panelCard__status--live" : "")}>
                 {listening ? "● Listening" : "Stopped"}
+                {listening && usingFallback && " (browser fallback)"}
               </div>
               {listening && (
                 <div className="panelCard__lastHeard" aria-live="polite">
@@ -224,10 +226,11 @@ export function ScriptWorkspace({
                 </div>
               )}
               <div className="panelCard__disclosure">
-                This beta build uses your browser's built-in speech recognition. In most browsers
-                (e.g. Chrome), that means audio is sent to the browser vendor's cloud service for
-                transcription -- FlowCue AI itself does not store or transmit it. Fully on-device
-                recognition is planned but not yet available (see Offline Mode in Settings).
+                {usingFallback
+                  ? "Deepgram (this beta's low-latency recognizer) isn't reachable right now, so this session fell back to your browser's built-in speech recognition. In most browsers (e.g. Chrome), that means audio is sent to the browser vendor's cloud service for transcription."
+                  : "Audio streams to Deepgram for low-latency transcription via FlowCue AI's own relay -- the Deepgram API key stays on that server and never reaches this page."}{" "}
+                FlowCue AI itself does not store audio. Fully on-device recognition is planned but not
+                yet available (see Offline Mode in Settings).
               </div>
             </div>
 
