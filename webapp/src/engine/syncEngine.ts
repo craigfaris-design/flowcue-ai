@@ -45,7 +45,16 @@ const DEFAULT_OPTIONS: Required<SyncEngineOptions> = {
   nearWindowAfter: 45,
   matchWindowSize: 6,
   confidenceThreshold: 0.6,
-  freezeAfterMs: 2000,
+  // A live speaker's ordinary pause -- a breath, a beat for emphasis, a
+  // moment to compose themselves in an emotional speech like a wedding
+  // toast -- routinely runs 2-3+ seconds. The original 2000ms threshold
+  // (tuned before any real-speech testing) fired the freeze indicator on
+  // completely normal delivery, not just genuine lost-position silence.
+  // Confirmed directly: a scripted 2.5s pause between sentences froze under
+  // the old default even with perfect transcription. 4000ms covers the
+  // large majority of natural pauses while still flagging real silence
+  // within a reasonable time.
+  freezeAfterMs: 4000,
 };
 
 const VOWEL_CHECK = /[^a-z0-9']/g;
@@ -117,18 +126,28 @@ export class SyncEngine {
   private scoreCandidate(startIdx: number): number {
     const n = this.spokenBuffer.length;
 
-    // The most recently spoken word must plausibly match this candidate's
-    // implied position, or the candidate is disqualified outright. Without
-    // this, a candidate can look "confident" purely from stale words earlier
-    // in the rolling buffer -- e.g. the tail end of words spoken before an
-    // ad-lib began -- letting the cursor creep forward one token per ad-lib
-    // word even though nothing new was actually recognized there (up to
-    // ceil(matchWindowSize * confidenceThreshold) - 1 stale words can still
-    // out-vote a single fresh mismatch). Anchoring on the newest word ties
-    // the score to what the speaker is saying right now, not what they said
-    // several words ago that happens to still be sitting in the buffer.
-    const lastToken = this.tokens[startIdx + n - 1];
-    if (!lastToken || !wordsMatch(this.spokenBuffer[n - 1], lastToken.norm)) return 0;
+    // At least 2 of the most recent 3 words spoken (or all-but-one, for a
+    // shorter buffer) must plausibly match this candidate's implied
+    // position, or it's disqualified outright. Without some recency
+    // requirement, a candidate can look "confident" purely from stale words
+    // earlier in the rolling buffer -- e.g. the tail end of words spoken
+    // before an ad-lib began -- letting the cursor creep forward on an
+    // ad-lib with nothing new actually recognized there. An earlier version
+    // of this required literally the single freshest word to match, which
+    // turned out too strict against ordinary speech-recognition noise: real
+    // recognizers regularly misrecognize one isolated word even mid-sentence
+    // (found via live testing -- it was disqualifying every candidate,
+    // including the correct one, often enough to visibly freeze during
+    // completely normal speech). Requiring 2-of-3 tolerates one isolated
+    // miss without tolerating a genuine stretch of new/unrelated words.
+    const recentCount = Math.min(3, n);
+    const recentNeeded = Math.max(1, recentCount - 1);
+    let recentMatches = 0;
+    for (let i = n - recentCount; i < n; i++) {
+      const t = this.tokens[startIdx + i];
+      if (t && wordsMatch(this.spokenBuffer[i], t.norm)) recentMatches++;
+    }
+    if (recentMatches < recentNeeded) return 0;
 
     let matches = 0;
     for (let i = 0; i < n; i++) {

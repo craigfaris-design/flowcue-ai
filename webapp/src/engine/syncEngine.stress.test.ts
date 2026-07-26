@@ -23,6 +23,37 @@ function busyWaitMs(ms: number) {
 }
 
 describe("SyncEngine -- realistic human speech patterns", () => {
+  it("does not freeze on an ordinary pause between sentences (default threshold)", () => {
+    // Found via live testing: a completely normal ~2.5s pause for a breath
+    // or a beat of emphasis -- routine in an emotional speech like a
+    // wedding toast -- froze under the old 2000ms default even with
+    // perfect transcription. Uses the real default threshold deliberately,
+    // not an overridden one, to guard the actual shipped behavior.
+    const engine = new SyncEngine(script);
+    speak(engine, "Good evening everyone and thank you for being here tonight".split(" "));
+    busyWaitMs(2500);
+    expect(engine.getState().frozen).toBe(false);
+  });
+
+  it("keeps tracking through one isolated misrecognized word, not just clean transcripts", () => {
+    // An earlier fix (requiring the single freshest word to match, to stop
+    // ad-lib drift) turned out too strict against ordinary recognizer noise:
+    // real speech-to-text regularly misrecognizes an isolated word even
+    // mid-sentence, and that fix disqualified every candidate -- including
+    // the correct one -- whenever the bad luck landed on the newest word,
+    // which showed up as spurious freezes during otherwise-normal live
+    // speech. "impossible" stands in for a real word the recognizer
+    // garbled entirely (not just a minor misspelling fuzzy-matching handles).
+    const engine = new SyncEngine(script, { freezeAfterMs: 500 });
+    speak(engine, "When Sarah first told me she was getting married I".split(" "));
+    speak(engine, ["impossible"]); // one isolated bad word from the recognizer
+    speak(engine, "honestly did not believe her".split(" "));
+    expect(engine.getState().frozen).toBe(false);
+    // Completes sentence 1 exactly, so the anticipatory-highlight behavior
+    // (see the dedicated test for it) correctly shows sentence 2 as next.
+    expect(engine.getState().sentenceIndex).toBe(2);
+  });
+
   it("does not falsely freeze on a brief natural pause mid-sentence", () => {
     const engine = new SyncEngine(script, { freezeAfterMs: 300 });
     speak(engine, "Good evening everyone and".split(" "));
