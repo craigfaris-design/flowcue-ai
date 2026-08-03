@@ -17,9 +17,30 @@ export function PronunciationPopover({ word, x, y, onClose }: PronunciationPopov
     function handleClick(e: MouseEvent) {
       if (ref.current && !ref.current.contains(e.target as Node)) onClose();
     }
+    function handleKeyDown(e: KeyboardEvent) {
+      // Found via accessibility review: this had no keyboard dismissal at
+      // all (only closed via a mousedown-outside listener), and no focus
+      // management -- a keyboard/screen-reader user opening it (now
+      // possible per the word-span fix in RehearsalStage.tsx) had no way
+      // to close it without a mouse, and no indication it had opened.
+      if (e.key === "Escape") onClose();
+    }
     document.addEventListener("mousedown", handleClick);
-    return () => document.removeEventListener("mousedown", handleClick);
+    document.addEventListener("keydown", handleKeyDown);
+    return () => {
+      document.removeEventListener("mousedown", handleClick);
+      document.removeEventListener("keydown", handleKeyDown);
+    };
   }, [onClose]);
+
+  useEffect(() => {
+    const trigger = document.activeElement as HTMLElement | null;
+    ref.current?.focus();
+    // Restore focus to whatever opened this (the word span) on close, so
+    // keyboard users land back where they were instead of losing their
+    // place in the document.
+    return () => trigger?.focus?.();
+  }, []);
 
   function playSlow() {
     if (!("speechSynthesis" in window)) return;
@@ -29,11 +50,18 @@ export function PronunciationPopover({ word, x, y, onClose }: PronunciationPopov
     window.speechSynthesis.speak(utter);
   }
 
-  const left = Math.min(x, window.innerWidth - 260);
-  const top = Math.min(y + 12, window.innerHeight - 160);
+  const left = Math.max(0, Math.min(x, window.innerWidth - 260));
+  const top = Math.max(0, Math.min(y + 12, window.innerHeight - 160));
 
   return (
-    <div ref={ref} className="pronouncePopover" style={{ left, top }}>
+    <div
+      ref={ref}
+      className="pronouncePopover"
+      style={{ left, top }}
+      role="dialog"
+      aria-label={`Pronunciation help for ${info.word}`}
+      tabIndex={-1}
+    >
       <div className="pronouncePopover__word">{info.word}</div>
       <div className="pronouncePopover__row">
         <span>Syllables</span>

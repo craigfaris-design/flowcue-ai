@@ -1,0 +1,12 @@
+[
+  {
+    "relation": ["delegate_permission/common.handle_all_urls"],
+    "target": {
+      "namespace": "android_app",
+      "package_name": "ai.flowcue.app",
+      "sha256_cert_fingerprints": [
+        "PLACEHOLDER_REPLACE_WITH_YOUR_UPLOAD_KEY_SHA256_FINGERPRINT"
+      ]
+    }
+  }
+]

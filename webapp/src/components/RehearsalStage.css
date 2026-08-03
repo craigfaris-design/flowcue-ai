@@ -1,4 +1,36 @@
 .rehearsalStage {
+  /* Deliberately kept dark even though the rest of the app is now a light
+     pastel theme -- re-scopes the shared color variables back to their
+     original dark-mode values for this subtree (including PronunciationPopover,
+     rendered as a child of this element), so every rule below keeps working
+     unchanged while resolving to dark-appropriate colors here specifically.
+     Requested explicitly: white/bright reading text needs a dark backdrop
+     to pop while speaking, which is the whole point of a teleprompter. */
+  --bg: #1a1429;
+  --bg-elevated: #271f42;
+  --bg-elevated-2: #211a35;
+  --lavender: #a594e0;
+  --mint: #7fe8c4;
+  --peach: #ffb199;
+  --coral: #ff8fa3;
+  --coral-tint: rgba(255,143,163,0.14);
+  --text: #f3f0fa;
+  --text-dim: #b3a8d1;
+  --text-faint: #766b96;
+  --text-faintest: #453c63;
+  --border: rgba(255,255,255,0.1);
+
+  background: var(--bg);
+  color: var(--text);
+  /* Explicitly the original system-font stack, not the new --font-ui
+     typeface the rest of the app just switched to -- the reading text
+     itself was asked to stay as it was. */
+  font-family: var(--font-reading);
+  border-radius: var(--radius-lg);
+  /* Margin so the rounded dark card actually reads as a floating panel
+     against the light page behind it, instead of its corners getting
+     clipped flush against the viewport/panel edges. */
+  margin: 16px 16px 16px 0;
   flex: 1;
   overflow-y: auto;
   padding: 48px 64px;
@@ -30,11 +62,51 @@
 
 .word { cursor: pointer; border-radius: 4px; padding: 0 1px; }
 .word:hover { background: rgba(255,255,255,0.08); }
+.word:focus-visible { outline: 2px solid var(--lavender); outline-offset: 2px; }
 .word--active { color: var(--peach); text-shadow: 0 0 16px rgba(255,177,153,0.4); }
 
 .rehearsalStage__empty { color: var(--text-dim); font-size: 14px; }
 
+/* Focus zone: a constrained teleprompter "reading window" -- only the
+   active line and its immediate neighbors stay legible. No transition on
+   opacity, matching the rest of the app's zero-animation-lag cueing. */
+.sentence--focusNear { opacity: 1; }
+.sentence--focusMid { opacity: 0.3; }
+.sentence--focusFar { opacity: 0.05; }
+
+/* Confidence colors: the active line reflects the engine's real match
+   ratio, not just a binary frozen/not-frozen. */
+.sentence--confidence-high { color: var(--mint); text-shadow: 0 0 22px rgba(127,232,196,0.35); }
+.sentence--confidence-medium { color: var(--peach); text-shadow: 0 0 22px rgba(255,177,153,0.35); }
+.sentence--confidence-low { color: var(--coral); text-shadow: 0 0 22px rgba(255,143,163,0.35); }
+
+/* A non-color backup for the confidence colors above -- color alone isn't
+   reliable for colorblind users, and medium/low are the two states a
+   presenter most needs to tell apart. */
+.sentence__confidenceBadge { display: inline-block; margin-right: 10px; font-size: 0.6em; vertical-align: middle; }
+.sentence__confidenceBadge--high { color: var(--mint); }
+.sentence__confidenceBadge--medium { color: var(--peach); }
+.sentence__confidenceBadge--low { color: var(--coral); }
+
+/* Mirror flip: for real teleprompter hardware (beam-splitter glass), which
+   needs pre-mirrored text so it reads correctly once reflected. */
+.rehearsalStage--mirrored .rehearsalStage__text { transform: scaleX(-1); }
+
 @media (max-width: 720px) {
-  .rehearsalStage { padding: 24px 20px; }
+  .rehearsalStage {
+    padding: 24px 20px;
+    margin: 16px 16px 16px;
+    /* flex:1 + overflow-y:auto squeezed this into whatever leftover space
+       remained inside a viewport-height parent, capping it far shorter
+       than its actual text content and trapping the overflow in an inner
+       scroll nothing could reach (see ScriptWorkspace.css's mobile query
+       for the full chain that caused this). Letting it size to its content
+       and scroll with the page instead -- and rendering first, ahead of
+       the settings panel, since the script is the primary content here,
+       not the controls around it. */
+    flex: none;
+    overflow-y: visible;
+    order: 1;
+  }
   .rehearsalStage__text { font-size: 21px; line-height: 1.7; }
 }

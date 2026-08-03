@@ -2,10 +2,27 @@
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
-    <link rel="icon" type="image/png" href="/logo.png" />
+    <link rel="icon" type="image/png" sizes="32x32" href="/icons/favicon-32.png" />
+    <link rel="icon" type="image/png" sizes="16x16" href="/icons/favicon-16.png" />
+    <link rel="apple-touch-icon" href="/icons/apple-touch-icon.png" />
+    <link rel="manifest" href="/manifest.json" />
+    <meta name="theme-color" content="#9c4420" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>FlowCue AI</title>
     <meta name="description" content="FlowCue AI — the AI speech companion that never loses your place." />
+    <!-- Poppins: the brand style guide's chosen UI typeface, for all app
+         chrome (nav, buttons, headings, panels) -- deliberately does NOT
+         apply to the rehearsal reading text, which keeps its original
+         system-font stack (see RehearsalStage.css). The offline app-shell
+         service worker (public/sw.js) caches all GET requests including
+         cross-origin ones, so this degrades gracefully offline after the
+         first successful load rather than breaking. -->
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700;800&display=swap"
+      rel="stylesheet"
+    />
   </head>
   <body>
     <div id="root"></div>

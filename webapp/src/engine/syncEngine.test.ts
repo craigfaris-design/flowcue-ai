@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { SyncEngine } from "./syncEngine";
+import { SyncEngine, expandSpokenWord, isDistinctiveToken, normalize, tokenizeScript } from "./syncEngine";
 
 const script = [
   "Good evening, everyone, and thank you for being here tonight.",
@@ -85,5 +85,132 @@ describe("SyncEngine", () => {
     expect(engine.getState().cursorTokenIndex).toBeGreaterThan(-1);
     engine.reset();
     expect(engine.getState().cursorTokenIndex).toBe(-1);
+  });
+
+  it("expandSpokenWord splits a negation contraction into its full-form parts", () => {
+    expect(expandSpokenWord("didn't")).toEqual(["did", "not"]);
+    expect(expandSpokenWord("Didn't")).toEqual(["did", "not"]);
+    expect(expandSpokenWord("wasn't")).toEqual(["was", "not"]);
+  });
+
+  it("expandSpokenWord splits an is/are/will/have contraction too (not just negations)", () => {
+    // Real capture from live testing: the script says "she is building"
+    // (two words), but Deepgram transcribed "she's building" -- the same
+    // class of mismatch as "didn't"/"did not", just a different
+    // contraction family that an earlier fix missed entirely.
+    expect(expandSpokenWord("she's")).toEqual(["she", "is"]);
+    expect(expandSpokenWord("we're")).toEqual(["we", "are"]);
+    expect(expandSpokenWord("i'll")).toEqual(["i", "will"]);
+    expect(expandSpokenWord("they've")).toEqual(["they", "have"]);
+  });
+
+  it("expandSpokenWord leaves ordinary words and genuine possessives unchanged", () => {
+    expect(expandSpokenWord("married")).toEqual(["married"]);
+    // "Sarah's"/"James's" are possessives, not contractions -- must stay
+    // one token, matching how the script itself would tokenize them.
+    expect(expandSpokenWord("Sarah's")).toEqual(["Sarah's"]);
+  });
+
+  it("does not misalign when speech contracts a word the script wrote in full (real Deepgram behavior found in live testing)", () => {
+    // Real capture from live testing: the script says "did not" (two
+    // words), but Deepgram transcribed the spoken audio as "didn't" (one
+    // word). Feeding that straight in, unexpanded, shifts every later
+    // word one position out of alignment -- the same class of bug as the
+    // duplicate-word case, just a missing token instead of an extra one.
+    const engine = new SyncEngine(script);
+    "When Sarah first told me she was getting married I honestly"
+      .split(" ")
+      .forEach((w) => engine.ingestWord(w));
+    expandSpokenWord("didn't").forEach((w) => engine.ingestWord(w));
+    speak(engine, "believe her".split(" "));
+    expect(engine.getState().frozen).toBe(false);
+    expect(engine.getState().sentenceIndex).toBe(2);
+  });
+
+  it("does not misalign on an is/are/will/have contraction either (the 'she's' case from live testing)", () => {
+    const engine = new SyncEngine(script);
+    "Tonight is not about the past though It is about the future"
+      .split(" ")
+      .forEach((w) => engine.ingestWord(w));
+    expandSpokenWord("she's").forEach((w) => engine.ingestWord(w));
+    speak(engine, "building with James".split(" "));
+    expect(engine.getState().frozen).toBe(false);
+    // Completes sentence 4 exactly ("...building with James."), so the
+    // anticipatory-highlight behavior correctly shows sentence 5 as next.
+    expect(engine.getState().sentenceIndex).toBe(5);
+  });
+
+  describe("isDistinctiveToken", () => {
+    it("flags camelCase, snake_case, digits, and acronyms as distinctive", () => {
+      expect(isDistinctiveToken("MirrorID")).toBe(true);
+      expect(isDistinctiveToken("mirror_id")).toBe(true);
+      expect(isDistinctiveToken("GPT4")).toBe(true);
+      expect(isDistinctiveToken("API")).toBe(true);
+    });
+
+    it("does not flag ordinary English words just for being long or sentence-initial", () => {
+      expect(isDistinctiveToken("though")).toBe(false);
+      expect(isDistinctiveToken("trademark")).toBe(false);
+      expect(isDistinctiveToken("Tonight")).toBe(false);
+    });
+  });
+
+  it("tolerates a mangled jargon/brand term without freezing, where the same 3-of-6 match ratio would otherwise fall short (real-world finding: users will paste scripts full of invented product/technical terms)", () => {
+    // A window's overall match ratio can land below the default 0.6
+    // threshold even when every ordinary word around it agrees, purely
+    // because of one recognizer-mangled jargon/brand term -- confirmed
+    // via live testing on a script full of an invented term ("MirrorID")
+    // transcribed inconsistently. scoreCandidate relaxes the threshold to
+    // 0.5 specifically for a window containing such a term.
+    const jargonScript = "Our internal codename for this project is MirrorID.";
+    const engine = new SyncEngine(jargonScript, { freezeAfterMs: 200 });
+    speak(engine, "Our internal".split(" "));
+    expect(engine.getState().frozen).toBe(false);
+
+    // Two early words mis-heard, "this"/"project"/"is" heard correctly,
+    // and "MirrorID" itself mangled -- exactly 3 of 6 in the window
+    // (0.5), with the window containing the jargon term.
+    speak(engine, ["wrongone", "wrongtwo", "this", "project", "is", "mirroridtypo"]);
+    expect(engine.getState().frozen).toBe(false);
+    // `frozen` alone can't prove the match actually succeeded -- this test
+    // runs synchronously, so the freeze clock never has real elapsed time
+    // to trip regardless of whether matching worked. The cursor actually
+    // reaching the script's last token is the real proof the mangled
+    // jargon term didn't stall tracking.
+    expect(engine.getState().cursorTokenIndex).toBe(7);
+  });
+
+  describe("normalize -- non-Latin scripts and accented Latin", () => {
+    it("no longer strips a non-Latin word down to nothing (found via accessibility review)", () => {
+      // The old filter (`[^a-z0-9']`) matched only ASCII, so any non-Latin
+      // word normalized to "" -- and tokenizeScript() drops empty-normalized
+      // tokens entirely, making the word permanently invisible to the
+      // matcher even though the script still displayed it.
+      expect(normalize("日本語")).not.toBe("");
+      expect(normalize("שלום")).not.toBe("");
+      expect(normalize("Привет")).not.toBe("");
+    });
+
+    it("a script containing non-Latin names still tokenizes them, instead of silently dropping them", () => {
+      const { tokens } = tokenizeScript("Please welcome our guest of honor, 田中さん, to the stage.");
+      const rawWords = tokens.map((t) => t.raw);
+      expect(rawWords).toContain("田中さん,");
+    });
+
+    it("strips accents from Latin letters so a plain-ASCII STT guess still fuzzy-matches", () => {
+      expect(normalize("café")).toBe("cafe");
+      expect(normalize("naïve")).toBe("naive");
+      expect(normalize("José")).toBe("jose");
+      expect(normalize("François")).toBe("francois");
+      expect(normalize("Zoë")).toBe("zoe");
+    });
+
+    it("tracks through a script with accented names even when the recognizer transcribes them as plain ASCII", () => {
+      const engine = new SyncEngine("Please welcome José and François to the stage.");
+      speak(engine, "Please welcome jose and francois to the stage".split(" "));
+      const state = engine.getState();
+      expect(state.frozen).toBe(false);
+      expect(state.cursorTokenIndex).toBe(state.totalTokens - 1);
+    });
   });
 });

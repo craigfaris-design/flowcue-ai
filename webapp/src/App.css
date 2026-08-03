@@ -7,8 +7,41 @@
 .app__main {
   flex: 1;
   overflow-y: auto;
-  background: var(--bg);
   min-width: 0;
+  /* A layered gradient mesh instead of a flat fill -- the single biggest
+     thing that makes a light UI feel considered rather than just "blank
+     and pastel." Large, faded blobs in the brand's own hues (peach/coral/
+     mint) so it reads as atmosphere, not decoration competing with the
+     content. Fixed so it doesn't visibly scroll/repeat with page content.
+     The first layer is the same black-to-peach story as the sidebar --
+     a dark corner right where the sidebar's own black top sits, dissolving
+     into the peach mesh rather than the sidebar's darkness just stopping
+     dead at a hard edge. */
+  background-color: var(--bg);
+  background-image:
+    radial-gradient(620px circle at -6% -10%, rgba(3,3,8,0.5), transparent 42%),
+    radial-gradient(650px circle at 100% -8%, rgba(156,68,32,0.3), transparent 60%),
+    radial-gradient(550px circle at -8% 28%, rgba(216,69,104,0.2), transparent 55%),
+    radial-gradient(750px circle at 92% 95%, rgba(31,149,117,0.18), transparent 55%),
+    radial-gradient(500px circle at 12% 92%, rgba(217,133,63,0.22), transparent 55%);
+  background-repeat: no-repeat;
+  background-attachment: fixed;
+}
+
+/* Subtle fade/rise on whichever view mounts (Library, ScriptWorkspace,
+   SettingsView) -- applied once here rather than per-component so every
+   view transition gets it automatically. Kept short and only translates a
+   few px: enough to feel considered, not enough to feel like a slideshow
+   or to delay the content being usable. */
+.app__main > * {
+  animation: viewEnter 0.28s ease-out;
+}
+@keyframes viewEnter {
+  from { opacity: 0; transform: translateY(6px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .app__main > * { animation: none; }
 }
 
 @media (max-width: 720px) {

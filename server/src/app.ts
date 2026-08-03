@@ -24,5 +24,17 @@ export function createApp(pool: Pool): Express {
   app.use("/api/sessions", sessionsRouter(pool));
   app.use("/api/settings", settingsRouter(pool));
 
+  // Found via code review: with no error-handling middleware, an async
+  // route handler's rejection (see asyncHandler.ts -- e.g. a DB error) had
+  // nowhere to go but an unhandled rejection, crashing the whole process
+  // for every user, not just returning a 500 to the one request that hit
+  // it. Must be registered last and take 4 params for Express to recognize
+  // it as error-handling middleware.
+  app.use((err: unknown, _req: express.Request, res: express.Response, _next: express.NextFunction) => {
+    console.error(err);
+    if (res.headersSent) return;
+    res.status(500).json({ error: "Internal server error" });
+  });
+
   return app;
 }

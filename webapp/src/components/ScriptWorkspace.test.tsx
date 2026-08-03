@@ -1,6 +1,7 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
 import { render, screen, fireEvent, act } from "@testing-library/react";
 import { ScriptWorkspace } from "./ScriptWorkspace";
+import { addSession } from "../lib/storage";
 import type { Script } from "../lib/types";
 
 const script: Script = {
@@ -52,6 +53,7 @@ describe("ScriptWorkspace offline mode", () => {
         script={script}
         defaultVisualMode="sentence"
         offlineModeEnabled={false}
+        syllabifyLongWords={false}
         onBack={noop}
         onScriptUpdated={noop}
         onScriptDeleted={noop}
@@ -68,6 +70,7 @@ describe("ScriptWorkspace offline mode", () => {
         script={script}
         defaultVisualMode="sentence"
         offlineModeEnabled={true}
+        syllabifyLongWords={false}
         onBack={noop}
         onScriptUpdated={noop}
         onScriptDeleted={noop}
@@ -90,6 +93,7 @@ describe("ScriptWorkspace offline mode", () => {
         script={script}
         defaultVisualMode="sentence"
         offlineModeEnabled={false}
+        syllabifyLongWords={false}
         onBack={noop}
         onScriptUpdated={noop}
         onScriptDeleted={noop}
@@ -109,6 +113,7 @@ describe("ScriptWorkspace offline mode", () => {
         script={script}
         defaultVisualMode="sentence"
         offlineModeEnabled={false}
+        syllabifyLongWords={false}
         onBack={noop}
         onScriptUpdated={noop}
         onScriptDeleted={noop}
@@ -127,6 +132,7 @@ describe("ScriptWorkspace offline mode", () => {
         script={script}
         defaultVisualMode="sentence"
         offlineModeEnabled={false}
+        syllabifyLongWords={false}
         onBack={noop}
         onScriptUpdated={noop}
         onScriptDeleted={noop}
@@ -142,5 +148,79 @@ describe("ScriptWorkspace offline mode", () => {
 
     expect(screen.getByText("good evening everyone")).toBeInTheDocument();
     expect(screen.queryByText(/nothing yet/)).not.toBeInTheDocument();
+  });
+
+  it("does not claim to be personalized with no rehearsal history yet", () => {
+    render(
+      <ScriptWorkspace
+        script={script}
+        defaultVisualMode="sentence"
+        offlineModeEnabled={false}
+        syllabifyLongWords={false}
+        onBack={noop}
+        onScriptUpdated={noop}
+        onScriptDeleted={noop}
+      />
+    );
+    expect(screen.queryByText(/Personalized to how live cueing/)).not.toBeInTheDocument();
+  });
+
+  it("shows the personalization disclosure once there's enough local rehearsal history", () => {
+    // Seed 5 well-tracked past sessions (the adaptiveTuning.ts minimum) --
+    // this is deliberately using the real storage module, not a mock, so
+    // this test exercises the actual wiring from localStorage through
+    // computeAdaptiveOptions into the rendered component, not just the
+    // pure function in isolation (already covered by adaptiveTuning.test.ts).
+    for (let i = 0; i < 5; i++) {
+      addSession({
+        scriptId: script.id,
+        date: new Date(2026, 0, i + 1).toISOString(),
+        durationSec: 60,
+        wordCount: 100,
+        fillerCount: 0,
+        wpm: 140,
+        fillerRate: 0,
+        confidence: 90,
+        freezeCount: 0,
+      });
+    }
+
+    render(
+      <ScriptWorkspace
+        script={script}
+        defaultVisualMode="sentence"
+        offlineModeEnabled={false}
+        syllabifyLongWords={false}
+        onBack={noop}
+        onScriptUpdated={noop}
+        onScriptDeleted={noop}
+      />
+    );
+    expect(screen.getByText(/Personalized to how live cueing has tracked you/)).toBeInTheDocument();
+    expect(screen.getByText(/your last 5 sessions/)).toBeInTheDocument();
+  });
+
+  it("records how many times tracking froze during a session, visible in the coach report", () => {
+    render(
+      <ScriptWorkspace
+        script={script}
+        defaultVisualMode="sentence"
+        offlineModeEnabled={false}
+        syllabifyLongWords={false}
+        onBack={noop}
+        onScriptUpdated={noop}
+        onScriptDeleted={noop}
+      />
+    );
+
+    fireEvent.click(screen.getByText("▶ Start Listening"));
+    act(() => {
+      lastInstance!.onresult?.({ resultIndex: 0, results: [{ isFinal: true, 0: { transcript: "good evening everyone" } }] });
+    });
+    fireEvent.click(screen.getByText("■ Stop"));
+
+    expect(screen.getByText("Tracking holds")).toBeInTheDocument();
+    // A clean run with no ad-libbed/mismatched speech never freezes.
+    expect(screen.getByText("Tracking holds").nextSibling?.textContent).toBe("0");
   });
 });

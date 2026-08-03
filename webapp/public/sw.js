@@ -2,12 +2,24 @@
 // Caches the built static assets so the shell (and any scripts a user has
 // marked "cached for offline rehearsal", which live in localStorage rather
 // than needing network access) keeps working without connectivity.
-const CACHE_NAME = "flowcue-shell-v1";
+const CACHE_NAME = "flowcue-shell-v2";
+const PRECACHE_URLS = [
+  "/",
+  "/index.html",
+  "/manifest.json",
+  "/icons/icon-192.png",
+  "/icons/icon-512.png",
+  "/icons/icon-maskable-192.png",
+  "/icons/icon-maskable-512.png",
+  "/icons/favicon-16.png",
+  "/icons/favicon-32.png",
+  "/icons/apple-touch-icon.png",
+];
 
 self.addEventListener("install", (event) => {
   self.skipWaiting();
   event.waitUntil(
-    caches.open(CACHE_NAME).then((cache) => cache.addAll(["/", "/index.html"]).catch(() => {}))
+    caches.open(CACHE_NAME).then((cache) => cache.addAll(PRECACHE_URLS).catch(() => {}))
   );
 });
 

@@ -1,7 +1,8 @@
 .coachReport {
-  background: var(--bg-elevated);
+  background: var(--surface-elevated);
   border-radius: var(--radius-md);
   padding: 16px;
+  box-shadow: var(--shadow-sm);
 }
 .coachReport h3 {
   margin: 0 0 12px;

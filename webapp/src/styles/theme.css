@@ -1,29 +1,53 @@
 :root {
-  /* Modern dark pastel palette -- deep muted surfaces, bright pastel accents,
-     near-white primary text so the active/reading text pops for legibility
-     while speaking (the whole point of a teleprompter). */
-  --bg: #1a1429;
-  --bg-elevated: #271f42;
-  --bg-elevated-2: #211a35;
-  --lavender: #a594e0;
-  --lavender-strong: #6c58a8;
-  --lavender-tint: rgba(165,148,224,0.16);
-  --mint: #7fe8c4;
-  --mint-tint: rgba(127,232,196,0.14);
-  --peach: #ffb199;
-  --peach-tint: rgba(255,177,153,0.14);
-  --coral: #ff8fa3;
-  --coral-tint: rgba(255,143,163,0.14);
+  /* Light modern pastel palette -- soft tinted surfaces, saturated-enough
+     pastel accents to stay legible on light backgrounds. One deliberate
+     exception: the reading stage (RehearsalStage.css) stays dark, scoping
+     its own copy of these variables back to the original dark-mode
+     values, so spoken text keeps standing out against a dark backdrop --
+     the whole point of a teleprompter -- while the rest of the app is
+     light. */
+  --bg: #fcf3ea;
+  --bg-elevated: #ffffff;
+  --bg-elevated-2: #f5e2ce;
+  --peach-strong: #9c4420;
+  --peach-deep: #7a3216;
+  --peach: #d9853f;
+  --peach-tint: #fbe3ce;
+  --mint: #1f9575;
+  --mint-tint: #e0f6ee;
+  --coral: #d84568;
+  --coral-tint: #fce3ea;
   --white: #ffffff;
-  --text: #f3f0fa;
-  --text-dim: #b3a8d1;
-  --text-faint: #766b96;
-  --text-faintest: #453c63;
-  --border: rgba(255,255,255,0.1);
+  --text: #3a2a20;
+  --text-dim: #8a6f5e;
+  --text-faint: #b39c8a;
+  --text-faintest: #ddc7b5;
+  --border: rgba(58,42,32,0.14);
   --radius-lg: 16px;
   --radius-md: 12px;
   --radius-sm: 8px;
-  font-family: -apple-system, "Segoe UI", Calibri, Helvetica, Arial, sans-serif;
+  /* Soft, diffused elevation for cards -- flat panels with just a 1px
+     border read as functional but a bit flat; a light shadow gives them
+     the "lifted" depth most current UI design leans on. Deliberately more
+     pronounced than a typical subtle-shadow pass, since a faint 1-2px
+     shadow reads as "barely there" at a glance rather than actually lifted. */
+  --shadow-sm: 0 1px 3px rgba(58,42,32,0.1), 0 1px 2px rgba(58,42,32,0.07);
+  --shadow-md: 0 10px 28px rgba(58,42,32,0.16), 0 3px 8px rgba(58,42,32,0.1);
+  --shadow-lg: 0 24px 56px rgba(58,42,32,0.24), 0 6px 16px rgba(58,42,32,0.13);
+  /* A warmer top-lit gradient instead of flat white -- cheap way to suggest a
+     light source hitting the card rather than a pasted-on flat rectangle.
+     Deepened further (was near-white) so cards read as peach-tinted objects,
+     not white cards that happen to sit on a peach page. */
+  --surface-elevated: linear-gradient(180deg, #ffffff 0%, #fceee0 100%);
+  /* Two separate stacks, deliberately: --font-ui is the brand style guide's
+     chosen typeface (Poppins) for all app chrome (nav, buttons, headings,
+     panels); --font-reading is the original system-font stack, kept exactly
+     as it was for the rehearsal stage specifically (see RehearsalStage.css)
+     -- the reading text itself wasn't asked to change, only everything
+     around it. */
+  --font-ui: "Poppins", -apple-system, "Segoe UI", Calibri, Helvetica, Arial, sans-serif;
+  --font-reading: -apple-system, "Segoe UI", Calibri, Helvetica, Arial, sans-serif;
+  font-family: var(--font-ui);
 }
 
 * { box-sizing: border-box; }
@@ -43,4 +67,55 @@ button {
 }
 
 ::-webkit-scrollbar { width: 8px; height: 8px; }
-::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.14); border-radius: 8px; }
+::-webkit-scrollbar-thumb { background: rgba(58,42,32,0.18); border-radius: 8px; }
+
+/* Shared "brand glow" treatment for the logo: a soft blurred halo using the
+   exact hex values from the brand style guide's color palette (#00D4FF ->
+   #7B2CFF -> #FF4DB8), matching the ribbon-waveform icon itself. Used
+   anywhere the logo needs real presence (sidebar brand, empty-library hero)
+   rather than sitting flat. Deliberately its own palette, separate from the
+   peach UI chrome -- the mark keeps its own brand identity rather than
+   being recolored to match the app's pastel accents. Sizes are separate
+   modifiers rather than a scale transform so the blur radius stays
+   proportionate at each size instead of just stretching. */
+.logoGlow { position: relative; display: inline-flex; }
+.logoGlow::before {
+  content: "";
+  position: absolute;
+  inset: -55%;
+  background: radial-gradient(
+    circle,
+    rgba(0,212,255,0.5) 0%,
+    rgba(123,44,255,0.36) 45%,
+    rgba(255,77,184,0.22) 65%,
+    transparent 75%
+  );
+  border-radius: 50%;
+  z-index: -1;
+  /* "Illuminate slightly all the time" -- a slow, continuous breathing
+     pulse rather than a static halo, so the logo reads as quietly alive
+     instead of a flat sticker. Subtle on purpose: opacity/scale range is
+     narrow enough to notice without becoming a distraction next to actual
+     content. */
+  animation: logoBreathe 3.6s ease-in-out infinite;
+}
+.logoGlow img { position: relative; display: block; }
+.logoGlow--sm::before { filter: blur(10px); }
+.logoGlow--lg::before { filter: blur(28px); }
+@keyframes logoBreathe {
+  0%, 100% { opacity: 0.75; transform: scale(0.96); }
+  50% { opacity: 1; transform: scale(1.04); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .logoGlow::before { animation: none; }
+}
+
+/* Gradient headline text -- a recognizable modern-SaaS signature, and a
+   much bolder way to use the brand's peach/coral range than a flat solid
+   color. Used for the app's primary page headings. */
+.gradientText {
+  background: linear-gradient(120deg, var(--peach-strong), var(--peach) 55%, var(--coral));
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}

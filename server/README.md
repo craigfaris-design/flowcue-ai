@@ -54,6 +54,42 @@ see webapp/README.md), this server also needs `HTTPS=true` in `.env`, or the
 browser will block the relay connection as mixed content (a secure page
 can't open a plain `ws://` connection).
 
+## Deploying to production
+
+`Dockerfile` builds a production image (multi-stage: compiles TypeScript,
+then ships only `dist/` + prod deps). To build and smoke-test it locally:
+
+```bash
+docker compose --profile full up --build   # postgres + server, both in Docker
+```
+
+For a real host (Fly.io, Render, Railway, a VM -- anywhere that can run a
+Docker image and reach a Postgres instance), you need to set in that
+platform's environment/secrets:
+
+- `DATABASE_URL` -- pointed at a real Postgres instance (managed or
+  self-hosted; `db.ts` doesn't care which).
+- `DEEPGRAM_API_KEY` -- same key as local dev.
+- `PORT` -- whatever the platform expects the app to listen on.
+- Leave `HTTPS` unset (or `false`) in production -- TLS termination is the
+  platform's job (its load balancer/reverse proxy), not this process's; see
+  the comment in `Dockerfile` and `src/index.ts`.
+
+Then run the migration once against the production database before the app's
+first request (`DATABASE_URL=<prod-url> npm run migrate`, from a machine that
+can reach it -- there's no auto-migrate-on-boot by design, so a bad migration
+can't take down a running deploy).
+
+This is the last piece before FlowCue AI is reachable by anyone other than
+someone running it locally -- see `webapp/DEPLOYMENT.md` for the matching
+piece on the frontend side. If the webapp and this server end up on
+different domains (e.g. webapp on Netlify, this on Render/Fly -- the
+likely setup, since `webapp/DEPLOYMENT.md`'s options are all frontend-only
+static hosts), set `VITE_STT_RELAY_URL` in the webapp's build environment to
+this server's real `wss://` URL (see `webapp/.env.example`) -- otherwise the
+webapp assumes the relay is on its own hostname and the connection silently
+fails to reach it.
+
 ## Test it
 
 ```bash
@@ -64,6 +100,37 @@ Tests run against [pg-mem](https://github.com/oguimbal/pg-mem), an in-memory
 Postgres-compatible engine, applying the exact same migration files as
 production -- so `npm test` needs no Docker/Postgres, but still exercises the
 same SQL and route code that runs against real Postgres.
+
+12 tests currently pass, including two added under a security/robustness
+review: a malformed id (or any other DB-level error) now returns a clean 500
+instead of crashing the whole process, and `PATCH /api/scripts/:id`/
+`POST /api/sessions` reject a wrong-shaped body with a 400 instead of
+reaching the database at all. See "Hardening" below for the full list of
+fixes that review found.
+
+## Hardening
+
+A security/robustness review (this beta had never had one) found and fixed:
+
+- **Any DB-level error used to crash the entire process**, not just fail the
+  one request -- Express 4 doesn't forward an async handler's rejection to
+  error middleware on its own. Every route is now wrapped in
+  `asyncHandler.ts`, and `app.ts` registers a final error-handling
+  middleware that returns a 500 instead.
+- `PATCH /api/scripts/:id` and `PATCH /api/settings` accepted any JSON type
+  for their fields with no validation (unlike `POST`, which already
+  checked) -- both now validate types the same way `POST` does.
+- `POST /api/sessions` didn't validate its numeric fields, so a
+  missing/wrong-type field threw a Postgres not-null/type error -- now
+  validated up front with a 400.
+- The STT relay (`sttRelay.ts`) had no `maxPayload` (the `ws` default is
+  100MB per frame) and no cap on concurrent connections, each of which
+  holds open a real connection to Deepgram against this beta's single
+  shared API key/quota -- both are now bounded.
+
+Confirmed clean in that same review: the Deepgram API key never leaks into
+any client-visible response/log, all SQL is parameterized (no injection
+risk), and every route correctly scopes to the current dev user.
 
 ## API
 

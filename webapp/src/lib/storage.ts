@@ -17,7 +17,14 @@ function read<T>(key: string, fallback: T): T {
   try {
     const raw = localStorage.getItem(key);
     if (!raw) return fallback;
-    return JSON.parse(raw) as T;
+    const parsed = JSON.parse(raw) as T;
+    // Guard against shape mismatches, not just invalid JSON: data left behind
+    // by an older schema (or hand-edited in devtools) can still be valid JSON
+    // of the wrong type -- e.g. an object where an array is expected. Without
+    // this check, an array-backed fallback (Script[]/SessionRecord[]) would
+    // parse fine but crash the first time callers call .sort()/.filter() on it.
+    if (Array.isArray(fallback) && !Array.isArray(parsed)) return fallback;
+    return parsed;
   } catch {
     return fallback;
   }
@@ -92,6 +99,17 @@ export function getSessionsForScript(scriptId: string): SessionRecord[] {
     .sort((a, b) => a.date.localeCompare(b.date));
 }
 
+/**
+ * Most recent sessions across *all* scripts, newest first -- used by
+ * adaptiveTuning.ts to build a general profile of how well live cueing
+ * tracks this device's user, not just their history with one script.
+ */
+export function getRecentSessions(limit: number): SessionRecord[] {
+  return getAllSessions()
+    .sort((a, b) => b.date.localeCompare(a.date))
+    .slice(0, limit);
+}
+
 export function addSession(record: Omit<SessionRecord, "id">): SessionRecord {
   const withId: SessionRecord = { ...record, id: uid() };
   const all = getAllSessions();
@@ -103,7 +121,11 @@ export function addSession(record: Omit<SessionRecord, "id">): SessionRecord {
 // ---------- Settings ----------
 
 export function getSettings(): Settings {
-  return read<Settings>(KEYS.settings, DEFAULT_SETTINGS);
+  // Merged with DEFAULT_SETTINGS, not returned as-is -- read() gives back
+  // whatever shape was actually saved, so a settings object saved before a
+  // newer field existed (e.g. syllabifyLongWords) would otherwise come back
+  // with that field simply missing/undefined rather than its default.
+  return { ...DEFAULT_SETTINGS, ...read<Settings>(KEYS.settings, DEFAULT_SETTINGS) };
 }
 
 export function saveSettings(patch: Partial<Settings>): Settings {

@@ -10,6 +10,30 @@ services:
       - "5432:5432"
     volumes:
       - flowcue_pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U flowcue"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  # Only runs with `docker compose --profile full up` -- day-to-day dev (npm
+  # run dev with tsx watch) is faster than rebuilding this image on every
+  # change, so it's opt-in. Exists so the production image can be built and
+  # smoke-tested locally before deploying it to a real host (see README.md).
+  server:
+    build: .
+    restart: unless-stopped
+    profiles: ["full"]
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      DATABASE_URL: postgres://flowcue:flowcue@postgres:5432/flowcue
+      PORT: 4000
+      DEEPGRAM_API_KEY: ${DEEPGRAM_API_KEY:-}
+      HTTPS: "false"
+    ports:
+      - "4000:4000"
 
 volumes:
   flowcue_pgdata:

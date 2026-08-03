@@ -1,0 +1,29 @@
+version: 2
+updates:
+  # Opens PRs against outdated packages -- it never auto-merges, so nothing
+  # reaches master without CI passing and a human approving. Weekly rather
+  # than daily: a live app's dependency tree doesn't move fast enough for
+  # daily PRs to carry real signal, and daily would just bury the one PR/week
+  # that actually matters under noise.
+  - package-ecosystem: npm
+    directory: /webapp
+    schedule:
+      interval: weekly
+    open-pull-requests-limit: 5
+    groups:
+      minor-and-patch:
+        update-types: [minor, patch]
+
+  - package-ecosystem: npm
+    directory: /server
+    schedule:
+      interval: weekly
+    open-pull-requests-limit: 5
+    groups:
+      minor-and-patch:
+        update-types: [minor, patch]
+
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly

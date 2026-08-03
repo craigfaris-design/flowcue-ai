@@ -8,17 +8,21 @@
   z-index: 100;
 }
 .onboarding__card {
-  background: var(--bg-elevated);
+  background: var(--surface-elevated);
   border: 1px solid var(--border);
   border-radius: var(--radius-lg);
   padding: 32px;
   max-width: 440px;
   width: 90%;
   color: var(--text);
+  box-shadow: var(--shadow-lg);
 }
 .onboarding__dots { display: flex; gap: 6px; margin-bottom: 18px; }
-.onboarding__dot { width: 7px; height: 7px; border-radius: 50%; background: rgba(255,255,255,0.2); }
-.onboarding__dot--active { background: var(--peach); }
-.onboarding__card h2 { font-size: 21px; margin: 0 0 12px; font-family: Cambria, Georgia, serif; }
+/* Found while auditing this pass: rgba(255,255,255,0.2) was a leftover from
+   the old dark card background -- on the current light card the inactive
+   dots were nearly invisible. */
+.onboarding__dot { width: 7px; height: 7px; border-radius: 50%; background: rgba(58,42,32,0.15); }
+.onboarding__dot--active { background: var(--peach-strong); }
+.onboarding__card h2 { font-size: 21px; margin: 0 0 12px; font-weight: 800; letter-spacing: -0.03em; }
 .onboarding__card p { font-size: 14px; color: var(--text-dim); line-height: 1.6; margin: 0 0 24px; }
 .onboarding__actions { display: flex; justify-content: flex-end; gap: 10px; }

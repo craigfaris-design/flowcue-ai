@@ -33,7 +33,14 @@ interface VowelRun {
 // two or more consonants split roughly down the middle (en-tre, not entr-e).
 export function splitSyllables(word: string): string[] {
   const w = cleanWord(word).toLowerCase();
-  if (w.length <= 3) return [w || word];
+  // Note: previously this fell back to the raw, uncleaned `word` when `w` was
+  // empty (e.g. a purely numeric/symbolic/emoji "word" like a page number or
+  // bullet). That leaked untouched digits/punctuation into the syllable list
+  // while `analyze()`'s `word` field (which is always cleanWord-based) showed
+  // empty -- the popover would display a syllable breakdown with content next
+  // to a blank headword and a blank respelling. Falling back to `w` (empty)
+  // keeps all three PronunciationInfo fields consistent for non-alphabetic input.
+  if (w.length <= 3) return [w];
 
   const isVowel = (ch: string) => VOWELS.includes(ch);
   const runs: VowelRun[] = [];
@@ -112,6 +119,49 @@ function guessStressIndex(syllableCount: number): number {
   if (syllableCount <= 1) return 0;
   if (syllableCount === 2) return 0;
   return 1;
+}
+
+// Word length in real syllables (not characters) beyond which a word counts
+// as "long/complicated" for the reading-view syllable-break setting -- short
+// words never need the help, and splitSyllables() already declines to split
+// anything <=3 letters at all.
+const LONG_WORD_SYLLABLE_THRESHOLD = 3;
+
+// Inserts a middle-dot between syllables for display in the actual
+// rehearsal reading text (e.g. "com·mu·ni·ca·tion") -- distinct from
+// analyze()'s syllableBreakdown, which is lowercase and drops punctuation
+// (fine for a tap-to-reveal popover, not fine for the reading text itself,
+// where original casing and trailing punctuation like a period or comma
+// still need to read correctly). Returns the word unchanged if it isn't
+// long enough to bother, or has no letters to split at all.
+export function syllabifyForDisplay(word: string): string {
+  // Deliberately only [a-zA-Z'] in the core, matching cleanWord()'s exact
+  // character set (used internally by splitSyllables) -- a hyphenated word
+  // like "well-known" won't decompose into prefix+core+suffix this way (the
+  // internal hyphen breaks the match) and safely falls through to the
+  // unchanged-word return below, rather than being sliced against syllable
+  // lengths that summed a hyphen-stripped string and would misalign.
+  const match = word.match(/^([^a-zA-Z']*)([a-zA-Z']+)?([^a-zA-Z']*)$/);
+  const core = match?.[2];
+  if (!core) return word;
+
+  const syllables = splitSyllables(core);
+  if (syllables.length < LONG_WORD_SYLLABLE_THRESHOLD) return word;
+
+  // splitSyllables lowercases internally and works off cleanWord() (which
+  // strips the same non-letter/apostrophe characters `core` already
+  // excludes), so its returned groups' lengths sum to exactly core.length --
+  // slicing the ORIGINAL-cased `core` at those same lengths reconstructs the
+  // split with casing intact instead of using the lowercased groups as-is.
+  const prefix = match?.[1] ?? "";
+  const suffix = match?.[3] ?? "";
+  const parts: string[] = [];
+  let pos = 0;
+  for (const syllable of syllables) {
+    parts.push(core.slice(pos, pos + syllable.length));
+    pos += syllable.length;
+  }
+  return prefix + parts.join("·") + suffix;
 }
 
 export function analyze(word: string): PronunciationInfo {

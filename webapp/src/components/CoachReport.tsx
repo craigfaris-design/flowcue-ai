@@ -31,6 +31,12 @@ export function CoachReport({ latest, history }: CoachReportProps) {
             <div className="metric__k">Confidence</div>
             <div className="metric__v">{Math.round(latest.confidence)}</div>
           </div>
+          {typeof latest.freezeCount === "number" && (
+            <div className="metric">
+              <div className="metric__k">Tracking holds</div>
+              <div className="metric__v">{latest.freezeCount}</div>
+            </div>
+          )}
         </div>
       )}
       {history.length > 1 && (

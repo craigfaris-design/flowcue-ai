@@ -1,4 +1,5 @@
-import type { Settings, VisualMode } from "../lib/types";
+import type { Settings } from "../lib/types";
+import { VISUAL_MODE_LABELS } from "../lib/types";
 import "./SettingsView.css";
 
 interface SettingsViewProps {
@@ -10,23 +11,42 @@ interface SettingsViewProps {
 export function SettingsView({ settings, onChange, onClearAllData }: SettingsViewProps) {
   return (
     <div className="settingsView">
-      <h1>Settings</h1>
+      <div className="settingsView__header">
+        <h1 className="gradientText">Settings</h1>
+      </div>
 
       <div className="settingsCard">
         <h3>Default Visual Reading Mode</h3>
         <p>Applies to newly opened scripts. You can still override it per-session.</p>
         <div className="toggleGroup toggleGroup--light" role="group" aria-label="Default visual reading mode">
-          {(["sentence", "word"] as VisualMode[]).map((m) => (
+          {VISUAL_MODE_LABELS.map(({ mode: m, label }) => (
             <button
               key={m}
               className={"toggle toggle--light" + (settings.visualMode === m ? " toggle--active" : "")}
               onClick={() => onChange({ visualMode: m })}
               aria-pressed={settings.visualMode === m}
             >
-              {m === "sentence" ? "Sentence glow" : "Word karaoke"}
+              {label}
             </button>
           ))}
         </div>
+      </div>
+
+      <div className="settingsCard">
+        <h3>Syllable Breaks</h3>
+        <p>
+          Inserts a middle-dot between syllables of long or complicated words in the reading text
+          (e.g. "com·mu·ni·ca·tion"), so they're easier to read out loud at a glance. Display only
+          -- it doesn't change the script itself or how live cueing tracks your speech.
+        </p>
+        <label className="switchRow switchRow--light">
+          <input
+            type="checkbox"
+            checked={settings.syllabifyLongWords}
+            onChange={(e) => onChange({ syllabifyLongWords: e.target.checked })}
+          />
+          <span>Break up long words into syllables</span>
+        </label>
       </div>
 
       <div className="settingsCard">

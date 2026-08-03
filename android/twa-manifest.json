@@ -1,0 +1,26 @@
+{
+  "_comment": "Bubblewrap (Google's official TWA build tool) config. PLACEHOLDER values below (host, signingKey paths) must be replaced once Craig has picked a real production domain and generated his own Android signing keystore -- see android/README.md.",
+  "packageId": "ai.flowcue.app",
+  "host": "app.flowcue.ai",
+  "name": "FlowCue AI",
+  "launcherName": "FlowCue AI",
+  "display": "standalone",
+  "themeColor": "#9c4420",
+  "navigationColor": "#9c4420",
+  "navigationColorDark": "#1a1429",
+  "backgroundColor": "#fcf3ea",
+  "backgroundColorDark": "#1a1429",
+  "enableNotifications": false,
+  "startUrl": "/",
+  "iconUrl": "https://app.flowcue.ai/icons/icon-512.png",
+  "maskableIconUrl": "https://app.flowcue.ai/icons/icon-maskable-512.png",
+  "splashScreenFadeOutDuration": 300,
+  "signingKey": {
+    "path": "./android.keystore",
+    "alias": "flowcue-upload"
+  },
+  "appVersionName": "1.0.0",
+  "appVersionCode": 1,
+  "shortcuts": [],
+  "generatorApp": "bubblewrap-cli"
+}

@@ -43,7 +43,7 @@ describe("App smoke test", () => {
   it("starts with an empty library, and creating a sample script opens the workspace", () => {
     render(<App />);
     dismissOnboarding();
-    expect(screen.getByText(/No scripts yet/)).toBeInTheDocument();
+    expect(screen.getByText(/Nothing rehearsed yet/)).toBeInTheDocument();
 
     fireEvent.click(screen.getByText("Try a sample script"));
     fireEvent.click(screen.getByText("Save Script"));
@@ -107,6 +107,6 @@ describe("App smoke test", () => {
     window.confirm = originalConfirm;
 
     expect(screen.queryByText("Sarah's Wedding Toast")).not.toBeInTheDocument();
-    expect(screen.getByText(/No scripts yet/)).toBeInTheDocument();
+    expect(screen.getByText(/Nothing rehearsed yet/)).toBeInTheDocument();
   });
 });

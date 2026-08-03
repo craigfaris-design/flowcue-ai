@@ -7,26 +7,70 @@
   display: flex;
   align-items: center;
   justify-content: space-between;
-  margin-bottom: 28px;
   flex-wrap: wrap;
   gap: 12px;
+  /* Full-bleed hero band echoing the sidebar's own black-to-peach story --
+     negative margins cancel out .library's padding so this stretches to
+     the page edges, then its own padding puts the content back where it
+     was. Fades to transparent by the bottom edge so it hands off cleanly
+     to the peach mesh underneath rather than a hard seam. */
+  margin: -36px -44px 28px;
+  padding: 40px 44px 28px;
+  background: linear-gradient(
+    135deg,
+    #050508 0%,
+    #241209 26%,
+    #5c2c14 50%,
+    var(--peach-deep) 74%,
+    transparent 100%
+  );
+  border-radius: 0 0 28px 28px;
 }
 .library__header h1 {
-  font-size: 26px;
-  color: var(--lavender);
+  font-size: 28px;
   margin: 0;
-  font-family: Cambria, Georgia, serif;
+  font-weight: 800;
+  letter-spacing: -0.03em;
 }
-.library__actions { display: flex; gap: 10px; }
+.library__actions { display: flex; gap: 10px; flex-wrap: wrap; }
+
+.library__importError {
+  background: var(--coral-tint);
+  color: var(--coral);
+  border-radius: var(--radius-sm);
+  padding: 10px 14px;
+  font-size: 13px;
+  margin-bottom: 20px;
+}
 
 .library__empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  max-width: 480px;
+  margin: 40px auto;
+  background: var(--surface-elevated);
+  padding: 48px 40px;
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-md);
+}
+/* Sized by width with height auto -- the mark's true ~2.5:1 aspect ratio,
+   not forced into a square (which left it as a thin sliver in a mostly
+   empty box). No border-radius: no card/background to round anymore. */
+.library__emptyLogo { width: 160px; height: auto; display: block; margin-bottom: 20px; }
+.library__empty h2 {
+  margin: 0 0 10px;
+  font-size: 20px;
+  font-weight: 800;
+  letter-spacing: -0.015em;
+  color: var(--text);
+}
+.library__empty p {
+  margin: 0;
   color: var(--text-dim);
   font-size: 14px;
-  max-width: 480px;
   line-height: 1.6;
-  background: var(--bg-elevated);
-  padding: 20px;
-  border-radius: var(--radius-md);
 }
 
 .library__grid {
@@ -37,15 +81,28 @@
 
 .scriptCard {
   position: relative;
-  background: var(--bg-elevated);
-  border-radius: var(--radius-md);
-  padding: 18px;
+  background: var(--surface-elevated);
+  border-radius: var(--radius-lg);
+  padding: 20px;
   cursor: pointer;
-  transition: transform 0.1s ease, box-shadow 0.15s ease;
+  transition: transform 0.15s ease, box-shadow 0.15s ease;
   border: 1px solid var(--border);
+  box-shadow: var(--shadow-sm);
+  overflow: hidden;
 }
-.scriptCard:hover { transform: translateY(-2px); box-shadow: 0 8px 24px rgba(0,0,0,0.35); }
-.scriptCard__title { font-weight: 700; color: var(--lavender); font-size: 15px; padding-right: 20px; }
+/* A colored gradient cap instead of a plain flat card -- a small touch
+   that makes the whole grid feel considered rather than a generic list. */
+.scriptCard::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 4px;
+  background: linear-gradient(90deg, var(--peach-strong), var(--peach), var(--coral));
+}
+.scriptCard:hover { transform: translateY(-3px); box-shadow: var(--shadow-lg); }
+.scriptCard__title { font-weight: 700; color: var(--peach-strong); font-size: 15px; padding-right: 20px; }
 .scriptCard__meta { font-size: 12px; color: var(--text-dim); margin-top: 8px; }
 .scriptCard__badge {
   display: inline-block;
@@ -105,12 +162,22 @@
   font-size: 13.5px;
   font-weight: 600;
   cursor: pointer;
+  transition: transform 0.1s ease, box-shadow 0.15s ease;
 }
+/* Tactile press feedback -- a small scale-down on click reads as
+   responsive/considered rather than the button just sitting there. */
+.btn:active:not(:disabled) { transform: scale(0.96); }
 .btn:disabled { opacity: 0.4; cursor: not-allowed; }
-.btn--primary { background: linear-gradient(135deg, var(--lavender-strong), var(--lavender)); color: var(--white); }
-.btn--secondary { background: var(--lavender-tint); color: var(--lavender); }
+.btn--primary {
+  background: linear-gradient(135deg, var(--peach-strong), var(--peach) 65%, var(--coral));
+  color: var(--white);
+  box-shadow: 0 6px 18px rgba(156,68,32,0.38), inset 0 1px 0 rgba(255,255,255,0.25);
+}
+.btn--primary:hover:not(:disabled) { transform: translateY(-1px); box-shadow: 0 9px 22px rgba(156,68,32,0.46), inset 0 1px 0 rgba(255,255,255,0.25); }
+.btn--secondary { background: var(--peach-tint); color: var(--peach-strong); }
 .btn--danger { background: var(--coral-tint); color: var(--coral); }
 
 @media (max-width: 720px) {
   .library { padding: 20px; }
+  .library__header { margin: -20px -20px 20px; padding: 24px 20px 20px; border-radius: 0 0 20px 20px; }
 }

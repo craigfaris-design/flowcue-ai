@@ -32,12 +32,30 @@ describe("scripts", () => {
     await request(app).get("/api/scripts/00000000-0000-0000-0000-000000000099").expect(404);
   });
 
+  it("returns a clean 500 (not a crashed process) for a DB-level error, e.g. a malformed id", async () => {
+    // Found via code review: an async route handler's DB error had nowhere
+    // to go without error-handling middleware, crashing the whole process
+    // rather than returning a 500 to just this request. A non-UUID id is
+    // enough to trigger a DB-level error on the `id = $1` comparison.
+    await request(app).get("/api/scripts/not-a-real-uuid").expect(500);
+    // The server must still be up and responding after that error.
+    await request(app).get("/api/scripts").expect(200);
+  });
+
   it("updates a script's body and bumps updatedAt", async () => {
     const created = await request(app).post("/api/scripts").send({ title: "Toast", body: "v1" });
     await new Promise((r) => setTimeout(r, 5));
     const updated = await request(app).patch(`/api/scripts/${created.body.id}`).send({ body: "v2" }).expect(200);
     expect(updated.body.body).toBe("v2");
     expect(updated.body.updatedAt).not.toBe(created.body.updatedAt);
+  });
+
+  it("400s a PATCH with a non-string title/body instead of crashing", async () => {
+    const created = await request(app).post("/api/scripts").send({ title: "Toast", body: "v1" });
+    await request(app).patch(`/api/scripts/${created.body.id}`).send({ title: ["a", "b"] }).expect(400);
+    await request(app).patch(`/api/scripts/${created.body.id}`).send({ body: { x: 1 } }).expect(400);
+    // The server must still be up and responding after the bad requests.
+    await request(app).get(`/api/scripts/${created.body.id}`).expect(200);
   });
 
   it("toggles offline cache flag", async () => {
@@ -112,8 +130,38 @@ describe("sessions", () => {
   it("404s when the referenced script doesn't exist", async () => {
     await request(app)
       .post("/api/sessions")
-      .send({ scriptId: "00000000-0000-0000-0000-000000000099", date: new Date().toISOString() })
+      .send({
+        scriptId: "00000000-0000-0000-0000-000000000099",
+        date: new Date().toISOString(),
+        durationSec: 30,
+        wordCount: 80,
+        fillerCount: 2,
+        wpm: 140,
+        fillerRate: 2.5,
+        confidence: 90,
+      })
       .expect(404);
+  });
+
+  it("400s when a required numeric field is missing or the wrong type", async () => {
+    const scriptId = (await request(app).post("/api/scripts").send({ title: "S", body: "B" })).body.id;
+    await request(app)
+      .post("/api/sessions")
+      .send({ scriptId, date: new Date().toISOString(), durationSec: 30, wordCount: 80, fillerCount: 2, wpm: 140 })
+      .expect(400);
+    await request(app)
+      .post("/api/sessions")
+      .send({
+        scriptId,
+        date: new Date().toISOString(),
+        durationSec: "thirty",
+        wordCount: 80,
+        fillerCount: 2,
+        wpm: 140,
+        fillerRate: 2.5,
+        confidence: 90,
+      })
+      .expect(400);
   });
 });
 

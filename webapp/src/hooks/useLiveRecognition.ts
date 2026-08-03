@@ -46,19 +46,27 @@ export function useLiveRecognition({ onWords }: UseLiveRecognitionOptions) {
     webSpeechRef.current.start();
   }, [attempted, deepgram.error, deepgram.supported, usingFallback]);
 
+  const active = usingFallback ? webSpeech : deepgram;
+
   const start = useCallback(() => {
+    // Found via code review: start() had no guard against being called
+    // while a session is already active. Not currently reachable through
+    // the UI (the Start button is replaced by Stop once listening), but
+    // this is a public hook API -- a second call while on the fallback
+    // path would launch Deepgram *alongside* the already-running Web
+    // Speech recognizer, feeding the sync engine two interleaved
+    // transcripts from both providers at once.
+    if (active.listening) return;
     setUsingFallback(false);
     setAttempted(true);
     deepgramRef.current.start();
-  }, []);
+  }, [active.listening]);
 
   const stop = useCallback(() => {
     setAttempted(false);
     deepgramRef.current.stop();
     webSpeechRef.current.stop();
   }, []);
-
-  const active = usingFallback ? webSpeech : deepgram;
 
   return {
     listening: active.listening,

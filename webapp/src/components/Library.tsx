@@ -1,5 +1,6 @@
-import { useState } from "react";
+import { useRef, useState, type ChangeEvent } from "react";
 import type { Script } from "../lib/types";
+import { extractScriptFromFile } from "../lib/importScript";
 import "./Library.css";
 
 interface LibraryProps {
@@ -32,11 +33,36 @@ export function Library({ scripts, onOpen, onCreate, onDelete }: LibraryProps) {
   const [creating, setCreating] = useState(false);
   const [title, setTitle] = useState("");
   const [body, setBody] = useState("");
+  const [importing, setImporting] = useState(false);
+  const [importError, setImportError] = useState<string | null>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   function startCreate(useSample: boolean) {
     setTitle(useSample ? "Sarah's Wedding Toast" : "");
     setBody(useSample ? SAMPLE_BODY : "");
     setCreating(true);
+  }
+
+  async function handleFileSelected(e: ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    // Reset immediately (not after the async work below) so choosing the
+    // exact same file again still fires this handler -- browsers don't
+    // re-fire onChange for an unchanged file list otherwise.
+    e.target.value = "";
+    if (!file) return;
+
+    setImportError(null);
+    setImporting(true);
+    try {
+      const imported = await extractScriptFromFile(file);
+      setTitle(imported.title);
+      setBody(imported.body);
+      setCreating(true);
+    } catch (err) {
+      setImportError(err instanceof Error ? err.message : "Could not import that file.");
+    } finally {
+      setImporting(false);
+    }
   }
 
   function submitCreate() {
@@ -50,7 +76,7 @@ export function Library({ scripts, onOpen, onCreate, onDelete }: LibraryProps) {
   return (
     <div className="library">
       <div className="library__header">
-        <h1>Your Scripts</h1>
+        <h1 className="gradientText">Your Scripts</h1>
         <div className="library__actions">
           <button className="btn btn--secondary" onClick={() => startCreate(true)}>
             Try a sample script
@@ -58,13 +84,51 @@ export function Library({ scripts, onOpen, onCreate, onDelete }: LibraryProps) {
           <button className="btn btn--primary" onClick={() => startCreate(false)}>
             + New Script
           </button>
+          <button
+            className="btn btn--secondary"
+            onClick={() => {
+              setImportError(null);
+              fileInputRef.current?.click();
+            }}
+            disabled={importing}
+          >
+            {importing ? "Importing…" : "+ Import File"}
+          </button>
+          {/* Hidden -- the visible control is the button above, which just
+              forwards the click so the native file-picker UI can be styled
+              consistently with every other button instead of showing the
+              browser's own unstyled "Choose File" input. */}
+          <input
+            ref={fileInputRef}
+            type="file"
+            accept=".docx,.txt,text/plain,application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+            onChange={handleFileSelected}
+            style={{ display: "none" }}
+            aria-hidden="true"
+            tabIndex={-1}
+          />
         </div>
       </div>
 
+      {importError && (
+        <div className="library__importError" role="alert">
+          {importError}
+        </div>
+      )}
+
       {scripts.length === 0 && !creating && (
         <div className="library__empty">
-          No scripts yet. Paste a speech to start rehearsing — FlowCue AI will follow along as you
-          speak, even if you pause, skip ahead, or go off-script.
+          <span className="logoGlow logoGlow--lg">
+            {/* Icon-only asset here, not the full icon+wordmark lockup (logo.png)
+                -- that lockup's wordmark is white text designed for a dark
+                background and reads as barely-visible on this light card. */}
+            <img src="/logo-icon.png" alt="" className="library__emptyLogo" />
+          </span>
+          <h2>Nothing rehearsed yet</h2>
+          <p>
+            Paste a speech to start rehearsing — FlowCue AI will follow along as you speak, even if
+            you pause, skip ahead, or go off-script.
+          </p>
         </div>
       )}
 

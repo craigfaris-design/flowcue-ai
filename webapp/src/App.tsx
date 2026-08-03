@@ -76,6 +76,7 @@ export default function App() {
             script={activeScript}
             defaultVisualMode={settings.visualMode}
             offlineModeEnabled={settings.offlineModeEnabled}
+            syllabifyLongWords={settings.syllabifyLongWords}
             onBack={() => setActiveScriptId(null)}
             onScriptUpdated={handleScriptUpdated}
             onScriptDeleted={handleDelete}

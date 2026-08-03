@@ -24,10 +24,10 @@ export function SessionHistoryChart({ sessions }: SessionHistoryChartProps) {
 
   return (
     <svg viewBox={`0 0 ${WIDTH} ${HEIGHT}`} width="100%" height={HEIGHT} role="img" aria-label="Confidence trend chart">
-      <polyline points={points.join(" ")} fill="none" stroke="#ffb199" strokeWidth={2} strokeLinejoin="round" strokeLinecap="round" />
+      <polyline points={points.join(" ")} fill="none" stroke="#b5562b" strokeWidth={2} strokeLinejoin="round" strokeLinecap="round" />
       {values.map((_v, i) => {
         const [x, y] = points[i].split(",").map(Number);
-        return <circle key={i} cx={x} cy={y} r={2.5} fill="#ffb199" />;
+        return <circle key={i} cx={x} cy={y} r={2.5} fill="#b5562b" />;
       })}
     </svg>
   );

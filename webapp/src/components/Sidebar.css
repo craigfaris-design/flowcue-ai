@@ -1,60 +1,103 @@
 .sidebar {
   width: 230px;
   min-width: 230px;
-  background: var(--bg-elevated-2);
+  /* Black at the top (matching the logo's own dark card) dissolving down
+     into the app's peach identity -- literally the logo's backdrop bleeding
+     into the page rather than sitting in its own separate light chip. Stays
+     dark-to-mid throughout (never reaches pale peach-tint) so the light
+     text below keeps working the whole way down, not just near the top. */
+  background: linear-gradient(
+    180deg,
+    #050508 0%,
+    #241209 24%,
+    #5c2c14 46%,
+    var(--peach-deep) 68%,
+    var(--peach-strong) 100%
+  );
   display: flex;
   flex-direction: column;
   padding: 20px 16px;
-  border-right: 1px solid var(--border);
+  border-right: none;
+  box-shadow: 2px 0 20px rgba(0,0,0,0.25);
+  position: relative;
+  z-index: 1;
 }
 
 .sidebar__brand {
   display: flex;
+  flex-direction: column;
+  /* Centered -- both within the sidebar's content width (the same span the
+     Scripts/Settings tabs occupy below it) and relative to each other, so
+     the narrower ribbon sits centered above the wider wordmark rather than
+     both being left-aligned. */
   align-items: center;
-  gap: 10px;
-  font-weight: 700;
-  font-size: 16px;
-  color: var(--text);
-  padding: 4px 8px 24px;
+  margin: 0 0 20px;
+  padding: 8px 0 0;
 }
 
-.sidebar__logo {
-  width: 24px;
-  height: 24px;
-  border-radius: 7px;
+/* Icon and wordmark are two separate crops from the brand style guide (not
+   one combined image) so the pulse animation can target just the ribbon --
+   applying it to a single combined icon+wordmark image would make the
+   "FlowCue AI" text pulse too, which wasn't asked for. Both exact pixels
+   from the design, not a CSS/web-font recreation. */
+.sidebar__logoIcon {
+  width: 84px;
+  height: auto;
   display: block;
+  /* "Illuminate slightly all the time" -- just the ribbon. */
+  animation: logoBreathe 3.6s ease-in-out infinite;
+}
+.sidebar__logoWordmark {
+  width: 116px;
+  height: auto;
+  display: block;
+  margin-top: 2px;
+}
+@media (prefers-reduced-motion: reduce) {
+  .sidebar__logoIcon { animation: none; }
 }
 
 .sidebar__nav {
   display: flex;
   flex-direction: column;
-  gap: 4px;
+  gap: 6px;
 }
 
 .sidebar__navItem {
+  display: flex;
+  align-items: center;
+  gap: 10px;
   text-align: left;
   background: none;
   border: none;
-  color: var(--text-dim);
+  color: rgba(253,238,225,0.7);
   font-size: 14px;
-  padding: 10px 12px;
-  border-radius: var(--radius-sm);
-  cursor: pointer;
-}
-.sidebar__navItem:hover { background: rgba(255,255,255,0.05); color: var(--text); }
-.sidebar__navItem--active {
-  background: var(--lavender-tint);
-  color: var(--lavender);
   font-weight: 600;
+  padding: 10px 14px;
+  border-radius: 10px;
+  cursor: pointer;
+  transition: background 0.12s ease, color 0.12s ease, transform 0.12s ease;
 }
+.sidebar__navIcon { width: 18px; height: 18px; flex-shrink: 0; }
+/* Sidebar went back to a dark background (black-to-peach), so a light
+   overlay hover is correct again here -- the opposite fix from when it was
+   briefly a light sidebar (see git history if that ever comes back). */
+.sidebar__navItem:hover { background: rgba(255,255,255,0.1); color: #fdeee1; }
+.sidebar__navItem:active { transform: scale(0.97); }
+.sidebar__navItem--active {
+  background: linear-gradient(135deg, var(--peach-strong), var(--peach) 65%, var(--coral));
+  color: var(--white);
+  box-shadow: 0 6px 16px rgba(156,68,32,0.36), inset 0 1px 0 rgba(255,255,255,0.22);
+}
+.sidebar__navItem--active:hover { background: linear-gradient(135deg, var(--peach-strong), var(--peach) 65%, var(--coral)); color: var(--white); }
 
 .sidebar__footer {
   margin-top: auto;
   padding-top: 16px;
-  border-top: 1px solid var(--border);
+  border-top: 1px solid rgba(255,255,255,0.14);
 }
-.sidebar__account { font-size: 12px; color: var(--text-dim); }
-.sidebar__version { font-size: 10.5px; color: var(--text-faint); margin-top: 4px; }
+.sidebar__account { font-size: 12px; color: rgba(253,238,225,0.75); }
+.sidebar__version { font-size: 10.5px; color: rgba(253,238,225,0.4); margin-top: 4px; }
 
 @media (max-width: 720px) {
   .sidebar {
@@ -64,10 +107,27 @@
     align-items: center;
     justify-content: space-between;
     padding: 10px 16px;
+    /* Same black-to-peach story, just rotated to match the sidebar's own
+       row layout at this width -- black behind the logo on the left,
+       dissolving into peach toward the right edge. */
+    background: linear-gradient(
+      90deg,
+      #050508 0%,
+      #241209 24%,
+      #5c2c14 46%,
+      var(--peach-deep) 68%,
+      var(--peach-strong) 100%
+    );
     border-right: none;
-    border-bottom: 1px solid var(--border);
+    border-bottom: none;
   }
-  .sidebar__brand { padding: 0; font-size: 14px; }
+  /* Phone is the primary way this app gets used, so its logo gets the same
+     stacked treatment as desktop (ribbon above the wordmark) rather than a
+     shrunk-down side-by-side row -- just sized to still fit comfortably in
+     this bar's height. */
+  .sidebar__brand { flex-direction: column; align-items: center; margin: 0; padding: 0; }
+  .sidebar__logoIcon { width: 58px; height: auto; }
+  .sidebar__logoWordmark { width: 80px; height: auto; margin-top: 1px; }
   .sidebar__nav { flex-direction: row; gap: 4px; }
   .sidebar__navItem { padding: 8px 10px; font-size: 13px; }
   /* Account/version is low-priority chrome on a phone-width screen -- drop it
