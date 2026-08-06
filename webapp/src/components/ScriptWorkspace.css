@@ -99,6 +99,16 @@
   border-top: 1px solid var(--border);
 }
 .panelCard__lastHeard span { color: var(--text); font-weight: 600; }
+.panelCard__nudge {
+  margin-top: 10px;
+  padding: 10px 12px;
+  border-radius: var(--radius-sm);
+  background: var(--peach-tint);
+  color: var(--peach-strong);
+  font-size: 12.5px;
+  font-weight: 600;
+  line-height: 1.4;
+}
 .panelCard__hint { margin-top: 10px; font-size: 11.5px; color: var(--text-dim); line-height: 1.4; }
 
 .toggleGroup { display: flex; gap: 8px; flex-wrap: wrap; }
@@ -161,9 +171,9 @@
        behind scrolling past three cards first. */
     order: 2;
   }
-  /* Found via mobile review: 4 flex:1 toggle buttons ("Sentence glow",
-     "Word karaoke", "Focus zone", "Confidence colors") in one row had no
-     wrap rule and no mobile-specific sizing, squeezing each label into a
-     column too narrow to read on a phone. Two per row reads cleanly. */
+  /* Found via mobile review: flex:1 toggle buttons ("Sentence glow",
+     "Focus zone", "Confidence colors") in one row had no wrap rule and no
+     mobile-specific sizing, squeezing each label into a column too narrow
+     to read on a phone. Two per row reads cleanly. */
   .toggle { flex: 1 1 calc(50% - 4px); }
 }

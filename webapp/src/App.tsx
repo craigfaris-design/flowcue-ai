@@ -19,6 +19,14 @@ export default function App() {
     document.title = "FlowCue AI";
   }, []);
 
+  useEffect(() => {
+    // Removes the static pulsing-logo splash (index.html) now that the real
+    // app has actually painted -- runs after this component's first commit,
+    // which is the right moment (not a fixed timer, which could cut the
+    // splash before content is ready or leave it lingering after).
+    document.getElementById("flowcueSplash")?.remove();
+  }, []);
+
   function refreshScripts() {
     setScripts(storage.getScripts());
   }
@@ -77,6 +85,7 @@ export default function App() {
             defaultVisualMode={settings.visualMode}
             offlineModeEnabled={settings.offlineModeEnabled}
             syllabifyLongWords={settings.syllabifyLongWords}
+            speechLanguage={settings.speechLanguage}
             onBack={() => setActiveScriptId(null)}
             onScriptUpdated={handleScriptUpdated}
             onScriptDeleted={handleDelete}

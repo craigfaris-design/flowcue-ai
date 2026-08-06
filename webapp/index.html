@@ -23,9 +23,44 @@
       href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700;800&display=swap"
       rel="stylesheet"
     />
+    <!-- Inlined (not in theme.css) so this paints immediately, before the
+         external stylesheet has necessarily loaded -- the whole point of a
+         launch splash is to never show an unstyled flash first. Mirrors the
+         native Android splash screen (see android/twa-manifest.json's
+         backgroundColor) but can actually animate, unlike that one: TWA's
+         native splash is a single static bitmap with no animation support
+         short of ejecting to a custom native Activity, so this in-app
+         screen is what carries the "pulsing until the app opens" request
+         for virtually the whole visible launch time. -->
+    <style>
+      #flowcueSplash {
+        position: fixed;
+        inset: 0;
+        z-index: 9999;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        background: #000;
+      }
+      #flowcueSplash img {
+        width: 140px;
+        height: auto;
+        animation: flowcueSplashPulse 1.6s ease-in-out infinite;
+      }
+      @keyframes flowcueSplashPulse {
+        0%, 100% { opacity: 0.72; transform: scale(0.94); }
+        50% { opacity: 1; transform: scale(1.06); }
+      }
+      @media (prefers-reduced-motion: reduce) {
+        #flowcueSplash img { animation: none; }
+      }
+    </style>
   </head>
   <body>
     <div id="root"></div>
+    <div id="flowcueSplash">
+      <img src="/logo-icon.png" alt="" />
+    </div>
     <script type="module" src="/src/main.tsx"></script>
   </body>
 </html>

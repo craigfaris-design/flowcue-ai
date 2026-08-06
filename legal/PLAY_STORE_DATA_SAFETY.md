@@ -4,10 +4,12 @@
 > called in Play Console as of the last time this was written, but Google
 > changes that form's wording periodically — read the on-screen question
 > text and match it to the intent below rather than pasting blindly.
-> Re-verify against the app's actual behavior at submission time, especially
-> if the backend/hosting setup has changed since 2026-07-28 (see
-> `webapp/DEPLOYMENT.md` and `server/README.md` — nothing is deployed to a
-> real production host yet as of this writing).
+> Re-verify against the app's actual behavior at submission time. Last
+> updated 2026-08-06: the webapp is live at `flowcue-ai.netlify.app` and the
+> STT relay is live at `flowcue-backend.onrender.com`, both over real
+> HTTPS/WSS (see `webapp/DEPLOYMENT.md` and `server/README.md`) — the
+> encryption-in-transit answer below can now genuinely be "yes," not
+> conditional on hosting that didn't exist yet.
 
 # Play Store Data Safety — draft answers
 
@@ -20,7 +22,7 @@ transcription. Nothing else.
 
 - **Collected?** Yes — your microphone audio is transmitted off your device
   while live cueing is active.
-- **Shared?** Yes — with Deepgram, our real-time transcription provider,
+- **Shared?** Yes — with AssemblyAI, our real-time transcription provider,
   solely to convert your speech to text for the app's own use.
 - **Purpose(s):** App functionality (this is the core feature — following
   along as you speak).
@@ -29,8 +31,8 @@ transcription. Nothing else.
   written to disk or a database at any point in FlowCue AI's own
   infrastructure; it's forwarded and discarded. (See the fact-finding notes
   in `PRIVACY_POLICY.md` for the exact code paths this is based on.) Note:
-  Deepgram, as the receiving third party, has its own retention practices
-  independent of this — check Deepgram's current data retention terms
+  AssemblyAI, as the receiving third party, has its own retention practices
+  independent of this — check AssemblyAI's current data retention terms
   before finalizing this answer, since "ephemeral on our side" doesn't
   automatically mean "ephemeral on theirs."
 - **Is this data required or optional?** Optional in the sense that denying
@@ -71,12 +73,12 @@ third-party resources before submitting.
 ## Security practices section
 
 - **Is data encrypted in transit?** Yes — audio travels over a secure
-  WebSocket (`wss://`) to FlowCue AI's relay, and from the relay to Deepgram
-  over their secured API connection. **This is only true if the production
-  deployment actually terminates TLS** (see `server/README.md`'s
-  "Deploying to production" section) — don't submit "yes" here until real
-  hosting is live and verified to be HTTPS/WSS, not the self-signed dev
-  cert.
+  WebSocket (`wss://`) to FlowCue AI's relay, and from the relay to
+  AssemblyAI over their secured API connection. Verified: production
+  hosting (Netlify + Render, see `server/README.md`) terminates real TLS,
+  not the self-signed dev cert used for local/LAN testing — confirmed by
+  connecting directly to the deployed relay and receiving a valid response
+  over `wss://`.
 - **Can users request data deletion?** There's no account to delete data
   from. Locally stored data (scripts, session history, settings) can be
   cleared anytime via the in-app "Clear all local data" button in Settings,
@@ -91,10 +93,10 @@ third-party resources before submitting.
 
 ## Before submitting this for real
 
-1. Confirm production hosting is live and actually HTTPS/WSS before
-   answering the encryption-in-transit question definitively.
+1. ~~Confirm production hosting is live and actually HTTPS/WSS~~ — done,
+   see the note at the top of this file.
 2. Re-run the fact-finding pass in `PRIVACY_POLICY.md`'s appendix if any
    backend/auth/analytics work has landed since this draft was written —
    this form must match current behavior, not this snapshot.
-3. Read Deepgram's current data retention / subprocessor terms before
+3. Read AssemblyAI's current data retention / subprocessor terms before
    answering the "ephemeral processing" question with full confidence.

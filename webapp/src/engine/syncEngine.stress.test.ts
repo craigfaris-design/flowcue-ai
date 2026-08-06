@@ -100,10 +100,12 @@ describe("SyncEngine -- realistic human speech patterns", () => {
   });
 
   it("never even misaligns on a duplicated word, not just eventually recovers from it (real Deepgram hallucination found in live testing)", () => {
-    // Real capture from live testing: Deepgram transcribed "did not not
-    // believe her" for a single spoken "not" -- a genuine recognizer
-    // hallucination, not a segment-overlap artifact (that's the separate
-    // bug already fixed in useDeepgramRecognition.ts). Unlike the older
+    // Real capture from live testing: Deepgram (the provider in use at the
+    // time) transcribed "did not not believe her" for a single spoken
+    // "not" -- a genuine recognizer hallucination, not a segment-overlap
+    // artifact (that's the separate concern the STT hooks' own dedup
+    // logic handles, e.g. useAssemblyAIRecognition.ts's per-turn tracking).
+    // Unlike the older
     // "double-fired word" test above, this asserts frozen stays false
     // throughout -- i.e. the duplicate is neutralized immediately, not
     // just eventually recovered from after it ages out of the buffer.
@@ -265,6 +267,44 @@ describe("SyncEngine -- realistic human speech patterns", () => {
 
     speak(engine, "We have been best friends since the third grade and I have seen her through".split(" "));
     expect(engine.getState().sentenceIndex).toBe(2);
+  });
+
+  it("re-locks within a couple of words after a long enough aside to actually freeze, not four or five", () => {
+    // Regression test for a real report from live use: during a longer
+    // aside (chatting with the crowd, a joke) the app stayed stuck on the
+    // same paragraph well after the speaker had returned to the script.
+    // Root cause -- the 6-word rolling match buffer kept accumulating
+    // tangent words for the whole aside with nothing ever trimming it, so
+    // once genuinely frozen, several correct words were needed just to
+    // outweigh the stale tail sitting in the buffer (see the fix's comment
+    // in ingestWord() for the exact mechanics). This freezes for real
+    // (unlike the test above, which never crosses freezeAfterMs) and
+    // asserts recovery lands within 2 resumed words, not the 4-5 the old
+    // behavior needed.
+    const engine = new SyncEngine(script, { freezeAfterMs: 50 });
+    speak(engine, "Good evening everyone and thank you for being here tonight".split(" "));
+    expect(engine.getState().frozen).toBe(false);
+
+    // A longer, rambling aside -- comfortably more than the 6-word buffer,
+    // built from words that don't appear in the script.
+    speak(
+      engine,
+      "hilarious wonderful seriously spontaneous laughter applause moment absolutely incredible feeling right now everybody having".split(
+        " "
+      )
+    );
+    busyWaitMs(80);
+    // One more tangent word to let ingestWord's frozen check actually run
+    // and confirm we're in the state the bug report describes.
+    speak(engine, ["folks"]);
+    expect(engine.getState().frozen).toBe(true);
+
+    // Resuming with just the first two words of the next sentence should
+    // be enough to re-lock -- previously this needed several more words.
+    speak(engine, "When Sarah".split(" "));
+    const recovered = engine.getState();
+    expect(recovered.frozen).toBe(false);
+    expect(recovered.sentenceIndex).toBe(1);
   });
 
   it("does not yank the cursor back to an earlier refrain occurrence when trailing noise arrives right at the end of the script", () => {

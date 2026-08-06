@@ -1,5 +1,5 @@
 import type { Settings } from "../lib/types";
-import { VISUAL_MODE_LABELS } from "../lib/types";
+import { SPEECH_LANGUAGES, VISUAL_MODE_LABELS } from "../lib/types";
 import "./SettingsView.css";
 
 interface SettingsViewProps {
@@ -47,6 +47,27 @@ export function SettingsView({ settings, onChange, onClearAllData }: SettingsVie
           />
           <span>Break up long words into syllables</span>
         </label>
+      </div>
+
+      <div className="settingsCard">
+        <h3>Speech Recognition Language</h3>
+        <p>
+          The language live cueing listens for while you speak. Doesn't change the app's own
+          interface, just what the recognizer expects to hear -- write your script in this
+          language for word-level tracking to work.
+        </p>
+        <select
+          className="settingsCard__select"
+          value={settings.speechLanguage}
+          onChange={(e) => onChange({ speechLanguage: e.target.value })}
+          aria-label="Speech recognition language"
+        >
+          {SPEECH_LANGUAGES.map(({ code, label }) => (
+            <option key={code} value={code}>
+              {label}
+            </option>
+          ))}
+        </select>
       </div>
 
       <div className="settingsCard">

@@ -11,6 +11,12 @@
   letter-spacing: 0.06em;
   color: var(--text-dim);
 }
+.coachReport__practiceNote {
+  margin: -6px 0 12px;
+  font-size: 11px;
+  color: var(--text-dim);
+  line-height: 1.4;
+}
 .coachReport__metrics {
   display: grid;
   grid-template-columns: 1fr 1fr;

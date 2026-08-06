@@ -30,7 +30,7 @@ services:
     environment:
       DATABASE_URL: postgres://flowcue:flowcue@postgres:5432/flowcue
       PORT: 4000
-      DEEPGRAM_API_KEY: ${DEEPGRAM_API_KEY:-}
+      ASSEMBLYAI_API_KEY: ${ASSEMBLYAI_API_KEY:-}
       HTTPS: "false"
     ports:
       - "4000:4000"

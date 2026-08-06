@@ -33,6 +33,18 @@ afterEach(() => {
 });
 
 describe("useSpeechRecognition", () => {
+  it("defaults to English when no language is given", () => {
+    const { result } = renderHook(() => useSpeechRecognition({ onWords: () => {} }));
+    act(() => result.current.start());
+    expect(lastInstance!.lang).toBe("en-US");
+  });
+
+  it("sets the recognizer's language from the language option", () => {
+    const { result } = renderHook(() => useSpeechRecognition({ onWords: () => {}, language: "de-DE" }));
+    act(() => result.current.start());
+    expect(lastInstance!.lang).toBe("de-DE");
+  });
+
   it("stops listening and surfaces a message on a fatal error (mic permission denied)", () => {
     const { result } = renderHook(() => useSpeechRecognition({ onWords: () => {} }));
 

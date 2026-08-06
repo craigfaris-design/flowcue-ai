@@ -531,6 +531,23 @@ export class SyncEngine {
         threshold: this.opts.confidenceThreshold,
       });
       this.unmatchedStreakStartAt = Date.now();
+    } else if (Date.now() - this.unmatchedStreakStartAt > this.opts.freezeAfterMs) {
+      // Genuinely frozen (not just a brief mismatch still within the grace
+      // period), so the rolling buffer is now mostly stale ad-lib words --
+      // scoreCandidate()'s skip tolerance only forgives up to 2 stray words
+      // per candidate, so once more than 2 of the buffer's up-to-6 slots are
+      // unrelated tangent content, a resumed script word can't clear the
+      // match ratio until enough real words accumulate to outweigh it.
+      // Found via live use: a longer aside (a joke, chatting with the
+      // crowd) left the presenter needing to speak several correct words
+      // in a row before the app noticed they'd returned -- reading as
+      // "stuck," not just briefly delayed. Trimming down to the last couple
+      // of words once frozen means the next couple of real words are
+      // compared against a mostly-clean buffer instead of dragging the
+      // whole stale tail along. Kept at 2 (not fewer) so the length-3
+      // minimum below is still reached after exactly one more word, and
+      // recentNeeded's 2-of-3 gate still has a chance to pass on schedule.
+      this.spokenBuffer = this.spokenBuffer.slice(-2);
     }
 
     return this.getState();

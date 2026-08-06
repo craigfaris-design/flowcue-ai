@@ -19,16 +19,23 @@ class MockRecognition {
   }
 }
 
-// Minimal Deepgram-side mocks, matching the pattern in useDeepgramRecognition.test.ts.
-class MockMediaRecorder {
-  state: "inactive" | "recording" = "inactive";
-  ondataavailable: ((e: { data: Blob }) => void) | null = null;
-  constructor(_stream: MediaStream, _options: unknown) {}
-  start() {
-    this.state = "recording";
+// Minimal AssemblyAI-side mocks, matching the pattern in useAssemblyAIRecognition.test.ts.
+class MockAudioWorkletNode {
+  port: { onmessage: ((e: { data: ArrayBuffer }) => void) | null } = { onmessage: null };
+  connect() {}
+  disconnect() {}
+}
+
+class MockAudioContext {
+  state: "running" | "closed" = "running";
+  audioWorklet = { addModule: vi.fn().mockResolvedValue(undefined) };
+  constructor(_opts?: unknown) {}
+  createMediaStreamSource(_stream: MediaStream) {
+    return { connect() {}, disconnect() {} };
   }
-  stop() {
-    this.state = "inactive";
+  close() {
+    this.state = "closed";
+    return Promise.resolve();
   }
 }
 
@@ -60,7 +67,8 @@ let lastRecognition: MockRecognition | null = null;
 beforeEach(() => {
   lastSocket = null;
   lastRecognition = null;
-  vi.stubGlobal("MediaRecorder", MockMediaRecorder);
+  vi.stubGlobal("AudioContext", MockAudioContext);
+  vi.stubGlobal("AudioWorkletNode", MockAudioWorkletNode);
   vi.stubGlobal("WebSocket", MockWebSocket);
   Object.defineProperty(navigator, "mediaDevices", {
     configurable: true,
@@ -81,11 +89,11 @@ afterEach(() => {
 });
 
 describe("useLiveRecognition", () => {
-  it("falls back to the browser recognizer when Deepgram's connection drops mid-session, not just when it's unreachable at start", async () => {
+  it("falls back to the browser recognizer when AssemblyAI's connection drops mid-session, not just when it's unreachable at start", async () => {
     // Found via code review: the fallback effect only checked
-    // `!deepgram.error`, which used to never become true on an unexpected
+    // `!assemblyAi.error`, which used to never become true on an unexpected
     // connection drop (ws.onclose didn't set an error) -- fixed at the
-    // source in useDeepgramRecognition.ts. This verifies the composed
+    // source in useAssemblyAIRecognition.ts. This verifies the composed
     // fallback behavior actually engages now that it does.
     const { result } = renderHook(() => useLiveRecognition({ onWords: () => {} }));
 
@@ -138,7 +146,7 @@ describe("useLiveRecognition", () => {
       result.current.start();
     });
 
-    // No new Deepgram connection was opened by the redundant start() call.
+    // No new AssemblyAI connection was opened by the redundant start() call.
     expect(lastSocket).toBe(socketBeforeSecondStart);
   });
 });

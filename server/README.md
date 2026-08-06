@@ -7,10 +7,12 @@ Two independent pieces live here:
    the swap target for `webapp/src/lib/storage.ts`, which is currently a
    `localStorage`-backed stand-in used deliberately through beta (see the
    Decision Log). Requires `DATABASE_URL`.
-2. **Deepgram STT relay** (`src/sttRelay.ts`) -- a dumb WebSocket
-   byte-forwarder between the webapp and Deepgram's real-time streaming API,
-   so the Deepgram API key never reaches the browser. Requires
-   `DEEPGRAM_API_KEY`. Does not touch the database at all.
+2. **AssemblyAI STT relay** (`src/sttRelay.ts`) -- a dumb WebSocket
+   byte-forwarder between the webapp and AssemblyAI's real-time streaming
+   API, so the AssemblyAI API key never reaches the browser. Requires
+   `ASSEMBLYAI_API_KEY`. Does not touch the database at all. (Switched from
+   Deepgram in 2026-08 for cost -- roughly a third of Deepgram's per-minute
+   streaming rate.)
 
 These are deliberately decoupled: `DATABASE_URL` is optional (see `db.ts`),
 so the STT relay works with no Postgres set up, and vice versa.
@@ -34,17 +36,17 @@ npm run migrate             # applies src/migrations/*.sql -- skip if you only n
 npm run dev                 # starts the server on http://localhost:4000
 ```
 
-### Enabling low-latency speech recognition (Deepgram)
+### Enabling low-latency speech recognition (AssemblyAI)
 
 The webapp's live cueing defaults to the browser's built-in speech
 recognition, which has no SLA and no offline mode (see the Technical
-Architecture doc's rationale). To use Deepgram instead:
+Architecture doc's rationale). To use AssemblyAI instead:
 
-1. Create a free account at https://console.deepgram.com and copy an API key.
-2. Add it to `.env`: `DEEPGRAM_API_KEY=your-key-here`.
+1. Create a free account at https://www.assemblyai.com and copy an API key.
+2. Add it to `.env`: `ASSEMBLYAI_API_KEY=your-key-here`.
 3. Restart this server (`npm run dev`).
 
-That's it -- the webapp detects Deepgram is reachable and configured
+That's it -- the webapp detects AssemblyAI is reachable and configured
 automatically; no webapp-side config needed. If it's unreachable or
 unconfigured, live cueing falls back to the browser's built-in recognizer
 without breaking, and the UI says so ("browser fallback").
@@ -56,6 +58,13 @@ can't open a plain `ws://` connection).
 
 ## Deploying to production
 
+**Status: deployed and live** at `https://flowcue-backend.onrender.com`
+(Render, free tier, Docker runtime, root directory `server`). No Postgres is
+deployed alongside it -- deliberately not needed, since the STT relay is the
+only piece actually in production use right now (the webapp still runs on
+`localStorage`, per "What's deliberately not here yet" below), and the two
+are fully decoupled by design.
+
 `Dockerfile` builds a production image (multi-stage: compiles TypeScript,
 then ships only `dist/` + prod deps). To build and smoke-test it locally:
 
@@ -63,32 +72,34 @@ then ships only `dist/` + prod deps). To build and smoke-test it locally:
 docker compose --profile full up --build   # postgres + server, both in Docker
 ```
 
-For a real host (Fly.io, Render, Railway, a VM -- anywhere that can run a
-Docker image and reach a Postgres instance), you need to set in that
-platform's environment/secrets:
+Render (or any other host that runs a Docker image -- Fly.io, Railway, a VM)
+needs these set in its environment/secrets:
 
-- `DATABASE_URL` -- pointed at a real Postgres instance (managed or
-  self-hosted; `db.ts` doesn't care which).
-- `DEEPGRAM_API_KEY` -- same key as local dev.
-- `PORT` -- whatever the platform expects the app to listen on.
+- `ASSEMBLYAI_API_KEY` -- same key as local dev.
+- `PORT` -- injected automatically by Render; `src/index.ts` already reads
+  `process.env.PORT`, no manual config needed there.
+- `DATABASE_URL` -- only if/when the Script Service actually gets wired up
+  to the frontend (see below); not currently set in production.
 - Leave `HTTPS` unset (or `false`) in production -- TLS termination is the
   platform's job (its load balancer/reverse proxy), not this process's; see
   the comment in `Dockerfile` and `src/index.ts`.
 
-Then run the migration once against the production database before the app's
-first request (`DATABASE_URL=<prod-url> npm run migrate`, from a machine that
-can reach it -- there's no auto-migrate-on-boot by design, so a bad migration
-can't take down a running deploy).
+The webapp's Netlify build has `VITE_STT_RELAY_URL=wss://flowcue-backend.onrender.com`
+set (see `webapp/.env.example` for what this does) -- required since the
+webapp and this server are on different domains (Netlify + Render), so the
+webapp can't assume the relay is on its own hostname.
 
-This is the last piece before FlowCue AI is reachable by anyone other than
-someone running it locally -- see `webapp/DEPLOYMENT.md` for the matching
-piece on the frontend side. If the webapp and this server end up on
-different domains (e.g. webapp on Netlify, this on Render/Fly -- the
-likely setup, since `webapp/DEPLOYMENT.md`'s options are all frontend-only
-static hosts), set `VITE_STT_RELAY_URL` in the webapp's build environment to
-this server's real `wss://` URL (see `webapp/.env.example`) -- otherwise the
-webapp assumes the relay is on its own hostname and the connection silently
-fails to reach it.
+One real, current limitation of the free Render tier: the instance spins
+down after a period of inactivity, so the first connection after a while can
+take up to ~50 seconds before the relay responds. Upgrading to a paid tier
+removes this; not done yet since it's a real recurring cost, left as a
+deliberate choice for whenever traffic actually justifies it.
+
+If the Script Service ever gets wired up to the frontend, run the migration
+once against the production database before the app's first request
+(`DATABASE_URL=<prod-url> npm run migrate`, from a machine that can reach it
+-- there's no auto-migrate-on-boot by design, so a bad migration can't take
+down a running deploy).
 
 ## Test it
 
@@ -101,7 +112,7 @@ Postgres-compatible engine, applying the exact same migration files as
 production -- so `npm test` needs no Docker/Postgres, but still exercises the
 same SQL and route code that runs against real Postgres.
 
-12 tests currently pass, including two added under a security/robustness
+19 tests currently pass, including two added under a security/robustness
 review: a malformed id (or any other DB-level error) now returns a clean 500
 instead of crashing the whole process, and `PATCH /api/scripts/:id`/
 `POST /api/sessions` reject a wrong-shaped body with a 400 instead of
@@ -125,12 +136,12 @@ A security/robustness review (this beta had never had one) found and fixed:
   validated up front with a 400.
 - The STT relay (`sttRelay.ts`) had no `maxPayload` (the `ws` default is
   100MB per frame) and no cap on concurrent connections, each of which
-  holds open a real connection to Deepgram against this beta's single
-  shared API key/quota -- both are now bounded.
+  holds open a real connection to the STT provider against this beta's
+  single shared API key/quota -- both are now bounded.
 
-Confirmed clean in that same review: the Deepgram API key never leaks into
-any client-visible response/log, all SQL is parameterized (no injection
-risk), and every route correctly scopes to the current dev user.
+Confirmed clean in that same review: the STT provider's API key never leaks
+into any client-visible response/log, all SQL is parameterized (no
+injection risk), and every route correctly scopes to the current dev user.
 
 ## API
 
@@ -138,7 +149,7 @@ risk), and every route correctly scopes to the current dev user.
 
 | Path              | Notes                                                        |
 |-------------------|---------------------------------------------------------------|
-| `WS /api/stt-relay` | Binary audio frames in (webm/opus, from MediaRecorder), Deepgram's JSON transcript messages relayed straight back out. No auth/session concept -- just a byte pipe. |
+| `WS /api/stt-relay` | Binary audio frames in (raw 16-bit PCM at 16kHz mono, from an AudioWorklet -- see `webapp/public/pcm-worklet.js`), AssemblyAI's JSON Turn messages relayed straight back out. No auth/session concept -- just a byte pipe. |
 
 ### Script Service
 

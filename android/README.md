@@ -4,51 +4,81 @@ FlowCue AI ships to the Play Store as a **Trusted Web Activity (TWA)** — Googl
 recommended path for a PWA, wrapping the real hosted web app in a thin native shell
 rather than a separate React Native/native rewrite. Same codebase, same deploys.
 
-This directory holds the Bubblewrap config (`twa-manifest.json`). It currently has
-**placeholder values** that only Craig can finalize:
+## Status: `.aab` built and signed, ready to upload
 
-## What's done
-- `twa-manifest.json` — TWA config (package id, colors, icon URLs) pointed at a
-  placeholder domain `app.flowcue.ai`.
-- `webapp/public/.well-known/assetlinks.json` — Digital Asset Links file that proves
-  the Android app and the website are owned by the same person, so the OS shows the
-  app with no browser UI (no address bar). Currently has a placeholder SHA256
-  fingerprint.
-- `webapp/public/manifest.json` + full icon set (`webapp/public/icons/`) — the PWA
-  manifest Bubblewrap reads from, already wired into `index.html`.
+- `twa-manifest.json` points at the real live domain (`flowcue-ai.netlify.app`, see
+  [webapp/DEPLOYMENT.md](../webapp/DEPLOYMENT.md)).
+- The production signing keystore exists at
+  `C:\Users\Craig\flowcue-android-keystore\android.keystore` (alias `flowcue-upload`)
+  — deliberately **outside this repo** (also covered by root `.gitignore`'s
+  `*.keystore`/`*.jks` as a backup) since losing it means losing the ability to ever
+  publish an update under this Play Store listing again. Back this file up somewhere
+  durable outside this machine. The keystore password was generated and shown once in
+  chat when this was set up — save it in a password manager if you haven't already.
+- `webapp/public/.well-known/assetlinks.json` has the real SHA256 fingerprint from
+  that keystore, deployed and verified reachable at
+  `https://flowcue-ai.netlify.app/.well-known/assetlinks.json`.
+- **`android/app-release-bundle.aab`** is the signed app bundle — this is the exact
+  file to upload in Play Console. (`app-release-signed.apk` also exists alongside it,
+  useful for sideloading a test install on a physical device; Play Console wants the
+  `.aab`, not the `.apk`.)
 
-## What Craig needs to do (can't be done on his behalf)
-1. **Pick and own the real production domain.** Replace `app.flowcue.ai` in
-   `twa-manifest.json` and the two `iconUrl`/`maskableIconUrl` fields with wherever
-   the app actually ends up hosted (see [webapp/DEPLOYMENT.md](../webapp/DEPLOYMENT.md)
-   — nothing is deployed yet, this is the same blocker).
-2. **Generate an Android signing keystore.** This is the identity of the app on the
-   Play Store forever — if it's lost, FlowCue AI can never be updated again under the
-   same listing. Only Craig should hold this file/password, not stored in this repo:
-   ```
-   keytool -genkey -v -keystore android.keystore -alias flowcue-upload \
-     -keyalg RSA -keysize 2048 -validity 9125
-   ```
-3. **Get the real SHA256 fingerprint** from that keystore and paste it into
-   `webapp/public/.well-known/assetlinks.json` (replacing the placeholder), then
-   redeploy the webapp so `https://<your-domain>/.well-known/assetlinks.json` serves
-   the real value:
-   ```
-   keytool -list -v -keystore android.keystore -alias flowcue-upload
-   ```
-4. **Build the app bundle** once the domain is live and assetlinks.json is verified
-   reachable over HTTPS:
-   ```
-   npm install -g @bubblewrap/cli
-   cd android
-   bubblewrap build
-   ```
-   This produces the `.aab` file to upload in Play Console.
-5. **Play Console account** ($25 one-time fee, Google account) — needed to actually
-   create the store listing and upload the `.aab`. See
-   [Task #14 checklist] for the full submission list (data safety form, privacy
-   policy URL, screenshots, feature graphic).
+## Rebuilding after a change (e.g. bumping the version, new icons)
 
-Everything above step 1 is blocked until there's a real hosted URL, since the TWA
-just points at the live website — there's no separate Android build to "finish" ahead
-of that.
+```bash
+cd android
+bubblewrap build
+```
+
+Two Windows-specific gotchas hit while getting this working the first time, neither
+of them Bubblewrap bugs per se, both are `cmd.exe` not searching the current directory
+for a bare executable name (a Windows security default, not new to this project):
+
+1. **`'gradlew.bat' is not recognized...`** — Bubblewrap shells out to `gradlew.bat`
+   by bare name, which `cmd.exe` won't resolve from the current directory alone.
+   Fix: add this `android/` directory to `PATH` for the session before building.
+2. **`'jarsigner' is not recognized...`** — same issue, for the JDK's `jarsigner`
+   (used to sign the `.aab` specifically; `apksigner` for the `.apk` apparently
+   resolves fine via Bubblewrap's own Android SDK path handling). Fix: also add the
+   JDK's `bin` directory to `PATH` (Bubblewrap installs its own JDK at
+   `C:\Users\Craig\.bubblewrap\jdk\jdk-17.0.11+9\bin` if you let it self-install one).
+
+Also hit once: `Could not reserve enough space for 1572864KB object heap` — Gradle's
+default heap request (1536MB) failed to reserve in this environment despite several
+GB of free memory being reported, most likely a tighter effective memory limit than
+Windows itself reports. Fixed by lowering `org.gradle.jvmargs` in `gradle.properties`
+to `-Xmx768m` — a TWA wrapper project is tiny and doesn't need much heap to compile.
+
+Putting it together, a full non-interactive rebuild from a fresh shell looks like:
+
+```powershell
+cd android
+$env:Path = "$PWD;C:\Users\Craig\.bubblewrap\jdk\jdk-17.0.11+9\bin;" + $env:Path
+$env:BUBBLEWRAP_KEYSTORE_PASSWORD = "<the keystore password>"
+$env:BUBBLEWRAP_KEY_PASSWORD = "<the same password>"
+"n" | bubblewrap build   # "n" skips re-running the interactive manifest wizard
+```
+
+Answering the "apply twa-manifest.json changes?" prompt with **"n"** (not "y") matters
+if you've hand-edited `twa-manifest.json` yourself, e.g. just to bump
+`appVersionName`/`appVersionCode` — answering "y" re-runs Bubblewrap's full
+interactive setup wizard, including free-text prompts (app name, version string,
+etc.) that a blind `yes`-piped answer will silently fill with the literal string
+`"y"` instead of a real value. Found this the hard way: it wrote `"appVersionName":
+"y"` into the manifest, caught and fixed before it reached a real build. If you do
+want the wizard (e.g. after a real manifest field change), run it in a real
+interactive terminal instead of piping answers.
+
+## What Craig still needs to do (can't be done on his behalf)
+
+1. **Play Console account** ($25 one-time fee, Google account) — needed to actually
+   create the store listing and upload `app-release-bundle.aab`.
+2. **Store listing assets** — description, screenshots (from a real device/build),
+   feature graphic. See `PLAY_STORE_LAUNCH_CHECKLIST.md` at the repo root for the
+   full list.
+3. **Legal review** of `legal/PRIVACY_POLICY.md` and `legal/TERMS_OF_SERVICE.md**
+   before linking them from the store listing (see that checklist for specifics).
+
+The backend STT relay (AssemblyAI, switched from Deepgram for cost) is
+already deployed live at `flowcue-backend.onrender.com` -- see
+`server/README.md`. Nothing left here is blocked on that.

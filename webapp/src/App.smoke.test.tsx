@@ -86,9 +86,9 @@ describe("App smoke test", () => {
     fireEvent.click(screen.getByText("Settings"));
     expect(screen.getByText("Default Visual Reading Mode")).toBeInTheDocument();
 
-    fireEvent.click(screen.getByText("Word karaoke"));
+    fireEvent.click(screen.getByText("Focus zone"));
     // Toggling shouldn't throw, and the label should still be present.
-    expect(screen.getByText("Word karaoke")).toBeInTheDocument();
+    expect(screen.getByText("Focus zone")).toBeInTheDocument();
   });
 
   it("deletes a script from the library", () => {

@@ -4,6 +4,7 @@ import { computeAdaptiveOptions } from "../engine/adaptiveTuning";
 import { useLiveRecognition } from "../hooks/useLiveRecognition";
 import type { Script, SessionRecord, VisualMode } from "../lib/types";
 import { VISUAL_MODE_LABELS } from "../lib/types";
+import { computeSessionMetrics, practiceNudge } from "../lib/sessionMetrics";
 import * as storage from "../lib/storage";
 import { RehearsalStage } from "./RehearsalStage";
 import { CoachReport } from "./CoachReport";
@@ -14,6 +15,7 @@ interface ScriptWorkspaceProps {
   defaultVisualMode: VisualMode;
   offlineModeEnabled: boolean;
   syllabifyLongWords: boolean;
+  speechLanguage: string;
   onBack: () => void;
   onScriptUpdated: (script: Script) => void;
   onScriptDeleted: (id: string) => void;
@@ -28,6 +30,7 @@ export function ScriptWorkspace({
   defaultVisualMode,
   offlineModeEnabled,
   syllabifyLongWords,
+  speechLanguage,
   onBack,
   onScriptUpdated,
   onScriptDeleted,
@@ -42,6 +45,18 @@ export function ScriptWorkspace({
   const [mirrorFlip, setMirrorFlip] = useState(false);
   const [history, setHistory] = useState<SessionRecord[]>(() => storage.getSessionsForScript(script.id));
   const [latestSession, setLatestSession] = useState<SessionRecord | null>(null);
+  // Whether `latestSession` is an ephemeral Practice Mode summary rather
+  // than a real saved record -- tracked separately instead of inferred from
+  // latestSession's id, so CoachReport's "was this saved?" framing never
+  // depends on a fragile sentinel value coinciding with a real session id.
+  const [latestWasPractice, setLatestWasPractice] = useState(false);
+  // Session-only, like mirrorFlip -- a per-rehearsal choice, not a device
+  // preference. Locked once listening starts (see the disabled checkbox
+  // below) so a session's data never straddles both modes: a practice run
+  // that got real-time nudges shouldn't suddenly start counting toward
+  // adaptiveTuning's real-session history partway through.
+  const [practiceMode, setPracticeMode] = useState(false);
+  const [liveNudge, setLiveNudge] = useState<string | null>(null);
 
   // On-device personalization: the more this device's user has rehearsed,
   // the more FlowCue AI has learned how live cueing tends to behave for
@@ -81,6 +96,7 @@ export function ScriptWorkspace({
   const lastHeardWordsRef = useRef<string[]>([]);
 
   const { listening, supported, error: recognitionError, usingFallback, start, stop } = useLiveRecognition({
+    language: speechLanguage,
     onWords: (words) => {
       words.forEach((w) => {
         sessionRef.current.wordCount++;
@@ -111,9 +127,17 @@ export function ScriptWorkspace({
     // the freeze indicator's whole purpose: telling the presenter, in real
     // time, that the app is holding position and waiting for them.
     if (!listening) return;
-    const id = setInterval(() => updateSyncState(engine.getState()), 300);
+    const id = setInterval(() => {
+      updateSyncState(engine.getState());
+      if (practiceMode) {
+        const { startedAt, wordCount, fillerCount } = sessionRef.current;
+        const durationSec = (Date.now() - startedAt) / 1000;
+        const { wpm, fillerRate } = computeSessionMetrics(wordCount, fillerCount, durationSec);
+        setLiveNudge(practiceNudge(wordCount, fillerRate, wpm));
+      }
+    }, 300);
     return () => clearInterval(id);
-  }, [listening, engine]);
+  }, [listening, engine, practiceMode]);
 
   useEffect(() => {
     // Keep the screen from dimming/locking for as long as this rehearsal
@@ -158,7 +182,7 @@ export function ScriptWorkspace({
   }, []);
 
   function handleStart() {
-    // Neither of this beta's recognizers is on-device: Deepgram is cloud-only
+    // Neither of this beta's recognizers is on-device: AssemblyAI is cloud-only
     // by design, and its fallback (the browser's Web Speech API) streams
     // audio to the browser vendor's cloud service. If the user has opted
     // into Offline Mode (privacy-sensitive use cases per the Technical
@@ -169,6 +193,8 @@ export function ScriptWorkspace({
     sessionRef.current = { startedAt: Date.now(), wordCount: 0, fillerCount: 0, freezeCount: 0 };
     wasFrozenRef.current = false;
     setLatestSession(null);
+    setLatestWasPractice(false);
+    setLiveNudge(null);
     lastHeardWordsRef.current = [];
     setLastHeard("");
     // Whatever was scrolled into view while reviewing the script/settings
@@ -188,13 +214,12 @@ export function ScriptWorkspace({
 
   function handleStop() {
     stop();
+    setLiveNudge(null);
     const { startedAt, wordCount, fillerCount, freezeCount } = sessionRef.current;
     if (!startedAt || wordCount === 0) return;
     const durationSec = Math.max(1, (Date.now() - startedAt) / 1000);
-    const wpm = Math.round((wordCount / durationSec) * 60);
-    const fillerRate = wordCount ? (fillerCount / wordCount) * 100 : 0;
-    const confidence = Math.max(0, Math.min(100, 100 - fillerRate * 4 - Math.abs(wpm - 140) / 2));
-    const record = storage.addSession({
+    const { wpm, fillerRate, confidence } = computeSessionMetrics(wordCount, fillerCount, durationSec);
+    const sessionData = {
       scriptId: script.id,
       date: new Date().toISOString(),
       durationSec,
@@ -204,9 +229,23 @@ export function ScriptWorkspace({
       fillerRate,
       confidence,
       freezeCount,
-    });
-    setLatestSession(record);
-    setHistory(storage.getSessionsForScript(script.id));
+    };
+    if (practiceMode) {
+      // Same shape as a real session record for CoachReport to render, but
+      // never written to storage.addSession -- a practice run gives the
+      // presenter feedback without silently counting toward the "official"
+      // history that adaptiveTuning.ts and the trend chart draw on. Never
+      // persisted, so this id is just a placeholder to satisfy the type,
+      // not a real identifier -- latestWasPractice is the actual source of
+      // truth for whether this was saved, not anything about the id.
+      setLatestSession({ id: "practice-session", ...sessionData });
+      setLatestWasPractice(true);
+    } else {
+      const record = storage.addSession(sessionData);
+      setLatestSession(record);
+      setLatestWasPractice(false);
+      setHistory(storage.getSessionsForScript(script.id));
+    }
   }
 
   function handleReset() {
@@ -215,6 +254,8 @@ export function ScriptWorkspace({
     wasFrozenRef.current = false;
     setSyncState(engine.getState());
     setLatestSession(null);
+    setLatestWasPractice(false);
+    setLiveNudge(null);
     lastHeardWordsRef.current = [];
     setLastHeard("");
   }
@@ -290,6 +331,15 @@ export function ScriptWorkspace({
                   Reset
                 </button>
               </div>
+              <label className="switchRow">
+                <input
+                  type="checkbox"
+                  checked={practiceMode}
+                  disabled={listening}
+                  onChange={(e) => setPracticeMode(e.target.checked)}
+                />
+                <span>Practice Mode -- live coaching tips, doesn't count toward your session history</span>
+              </label>
               {!supported && (
                 <div className="panelCard__warning">
                   This browser doesn't support live speech recognition (mic access, or Chrome/Edge for
@@ -317,10 +367,15 @@ export function ScriptWorkspace({
                   Last heard: <span>{lastHeard || "(nothing yet -- check mic input)"}</span>
                 </div>
               )}
+              {listening && practiceMode && liveNudge && (
+                <div className="panelCard__nudge" aria-live="polite">
+                  💬 {liveNudge}
+                </div>
+              )}
               <div className="panelCard__disclosure">
                 {usingFallback
-                  ? "Deepgram (this beta's low-latency recognizer) isn't reachable right now, so this session fell back to your browser's built-in speech recognition. In most browsers (e.g. Chrome), that means audio is sent to the browser vendor's cloud service for transcription."
-                  : "Audio streams to Deepgram for low-latency transcription via FlowCue AI's own relay -- the Deepgram API key stays on that server and never reaches this page."}{" "}
+                  ? "AssemblyAI (this beta's low-latency recognizer) isn't reachable right now, so this session fell back to your browser's built-in speech recognition. In most browsers (e.g. Chrome), that means audio is sent to the browser vendor's cloud service for transcription."
+                  : "Audio streams to AssemblyAI for low-latency transcription via FlowCue AI's own relay -- the AssemblyAI API key stays on that server and never reaches this page."}{" "}
                 FlowCue AI itself does not store audio. Fully on-device recognition is planned but not
                 yet available (see Offline Mode in Settings).
               </div>
@@ -373,7 +428,7 @@ export function ScriptWorkspace({
               </label>
             </div>
 
-            <CoachReport latest={latestSession} history={history} />
+            <CoachReport latest={latestSession} history={history} isPractice={latestWasPractice} />
           </div>
 
           <RehearsalStage

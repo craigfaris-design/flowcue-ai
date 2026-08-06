@@ -72,9 +72,9 @@ describe("storage", () => {
 
   it("persists settings", () => {
     expect(getSettings().onboardingComplete).toBe(false);
-    saveSettings({ onboardingComplete: true, visualMode: "word" });
+    saveSettings({ onboardingComplete: true, visualMode: "focus" });
     expect(getSettings().onboardingComplete).toBe(true);
-    expect(getSettings().visualMode).toBe("word");
+    expect(getSettings().visualMode).toBe("focus");
   });
 
   // ---------- QuotaExceededError / write failures ----------
@@ -165,11 +165,11 @@ describe("storage", () => {
     });
 
     it("a tab that saves settings after another tab's settings change does not wipe unrelated fields", () => {
-      saveSettings({ visualMode: "word" });
+      saveSettings({ visualMode: "focus" });
       // Second "tab" only intends to flip onboarding, unaware of the visualMode change.
       saveSettings({ onboardingComplete: true });
       const settings = getSettings();
-      expect(settings.visualMode).toBe("word");
+      expect(settings.visualMode).toBe("focus");
       expect(settings.onboardingComplete).toBe(true);
     });
   });

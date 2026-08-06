@@ -17,7 +17,7 @@ agree to them.
 FlowCue AI is a real-time speech-following teleprompter: you paste in a
 script, and as you speak, the app tracks your position and highlights where
 you are — even if you pause, skip ahead, repeat yourself, or go off-script.
-It uses live speech recognition (Deepgram, or your browser's built-in
+It uses live speech recognition (AssemblyAI, or your browser's built-in
 recognizer as a fallback) to do this. See the
 [Privacy Policy](./PRIVACY_POLICY.md) for exactly how your audio and data
 are handled.
@@ -47,7 +47,7 @@ Don't:
   (for example, sending excessive concurrent connections or oversized audio
   frames — the server enforces limits on both, and attempting to
   circumvent them is a violation of these Terms).
-- Reverse-engineer, scrape, or attempt to extract the Deepgram API key or
+- Reverse-engineer, scrape, or attempt to extract the AssemblyAI API key or
   any other credential the app or its backend holds.
 - Use the app in any way that could damage, disable, or impair it for other
   users.
@@ -63,7 +63,7 @@ keep your own copy of it outside the app.
 
 ## Third-party services
 
-Live cueing depends on Deepgram (or your browser vendor's built-in speech
+Live cueing depends on AssemblyAI (or your browser vendor's built-in speech
 recognition as a fallback) being available and working correctly. We're not
 responsible for outages, inaccuracies, or issues originating from these
 third-party services, though we'll do what we reasonably can to keep the

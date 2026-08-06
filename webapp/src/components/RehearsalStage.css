@@ -63,7 +63,6 @@
 .word { cursor: pointer; border-radius: 4px; padding: 0 1px; }
 .word:hover { background: rgba(255,255,255,0.08); }
 .word:focus-visible { outline: 2px solid var(--lavender); outline-offset: 2px; }
-.word--active { color: var(--peach); text-shadow: 0 0 16px rgba(255,177,153,0.4); }
 
 .rehearsalStage__empty { color: var(--text-dim); font-size: 14px; }
 

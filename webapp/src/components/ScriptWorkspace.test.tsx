@@ -1,7 +1,7 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
 import { render, screen, fireEvent, act } from "@testing-library/react";
 import { ScriptWorkspace } from "./ScriptWorkspace";
-import { addSession } from "../lib/storage";
+import { addSession, getSessionsForScript } from "../lib/storage";
 import type { Script } from "../lib/types";
 
 const script: Script = {
@@ -54,6 +54,7 @@ describe("ScriptWorkspace offline mode", () => {
         defaultVisualMode="sentence"
         offlineModeEnabled={false}
         syllabifyLongWords={false}
+        speechLanguage="en-US"
         onBack={noop}
         onScriptUpdated={noop}
         onScriptDeleted={noop}
@@ -71,6 +72,7 @@ describe("ScriptWorkspace offline mode", () => {
         defaultVisualMode="sentence"
         offlineModeEnabled={true}
         syllabifyLongWords={false}
+        speechLanguage="en-US"
         onBack={noop}
         onScriptUpdated={noop}
         onScriptDeleted={noop}
@@ -87,25 +89,26 @@ describe("ScriptWorkspace offline mode", () => {
     expect(screen.getByText("Stopped")).toBeInTheDocument();
   });
 
-  it("disclosure text describes Deepgram by default, not 'never sent anywhere'", () => {
+  it("disclosure text describes AssemblyAI by default, not 'never sent anywhere'", () => {
     render(
       <ScriptWorkspace
         script={script}
         defaultVisualMode="sentence"
         offlineModeEnabled={false}
         syllabifyLongWords={false}
+        speechLanguage="en-US"
         onBack={noop}
         onScriptUpdated={noop}
         onScriptDeleted={noop}
       />
     );
 
-    expect(screen.getByText(/Audio streams to Deepgram for low-latency transcription/)).toBeInTheDocument();
+    expect(screen.getByText(/Audio streams to AssemblyAI for low-latency transcription/)).toBeInTheDocument();
     expect(screen.queryByText(/not stored or sent anywhere by default/)).not.toBeInTheDocument();
   });
 
-  it("falls back to the browser recognizer (and says so) when Deepgram isn't usable", () => {
-    // jsdom has no getUserMedia/MediaRecorder, so Deepgram is never
+  it("falls back to the browser recognizer (and says so) when AssemblyAI isn't usable", () => {
+    // jsdom has no getUserMedia/AudioWorklet, so AssemblyAI is never
     // "supported" here -- exercises the exact fallback path a real browser
     // would take if the relay/API key isn't reachable.
     render(
@@ -114,6 +117,7 @@ describe("ScriptWorkspace offline mode", () => {
         defaultVisualMode="sentence"
         offlineModeEnabled={false}
         syllabifyLongWords={false}
+        speechLanguage="en-US"
         onBack={noop}
         onScriptUpdated={noop}
         onScriptDeleted={noop}
@@ -133,6 +137,7 @@ describe("ScriptWorkspace offline mode", () => {
         defaultVisualMode="sentence"
         offlineModeEnabled={false}
         syllabifyLongWords={false}
+        speechLanguage="en-US"
         onBack={noop}
         onScriptUpdated={noop}
         onScriptDeleted={noop}
@@ -157,6 +162,7 @@ describe("ScriptWorkspace offline mode", () => {
         defaultVisualMode="sentence"
         offlineModeEnabled={false}
         syllabifyLongWords={false}
+        speechLanguage="en-US"
         onBack={noop}
         onScriptUpdated={noop}
         onScriptDeleted={noop}
@@ -191,6 +197,7 @@ describe("ScriptWorkspace offline mode", () => {
         defaultVisualMode="sentence"
         offlineModeEnabled={false}
         syllabifyLongWords={false}
+        speechLanguage="en-US"
         onBack={noop}
         onScriptUpdated={noop}
         onScriptDeleted={noop}
@@ -207,6 +214,7 @@ describe("ScriptWorkspace offline mode", () => {
         defaultVisualMode="sentence"
         offlineModeEnabled={false}
         syllabifyLongWords={false}
+        speechLanguage="en-US"
         onBack={noop}
         onScriptUpdated={noop}
         onScriptDeleted={noop}
@@ -222,5 +230,115 @@ describe("ScriptWorkspace offline mode", () => {
     expect(screen.getByText("Tracking holds")).toBeInTheDocument();
     // A clean run with no ad-libbed/mismatched speech never freezes.
     expect(screen.getByText("Tracking holds").nextSibling?.textContent).toBe("0");
+  });
+});
+
+describe("ScriptWorkspace practice mode", () => {
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
+  function renderWorkspace() {
+    return render(
+      <ScriptWorkspace
+        script={script}
+        defaultVisualMode="sentence"
+        offlineModeEnabled={false}
+        syllabifyLongWords={false}
+        speechLanguage="en-US"
+        onBack={noop}
+        onScriptUpdated={noop}
+        onScriptDeleted={noop}
+      />
+    );
+  }
+
+  it("is off by default and toggleable before starting", () => {
+    renderWorkspace();
+    const checkbox = screen.getByLabelText(/Practice Mode/) as HTMLInputElement;
+    expect(checkbox.checked).toBe(false);
+    fireEvent.click(checkbox);
+    expect(checkbox.checked).toBe(true);
+  });
+
+  it("locks the toggle once listening starts, so a session can't straddle both modes", () => {
+    renderWorkspace();
+    const checkbox = screen.getByLabelText(/Practice Mode/) as HTMLInputElement;
+    fireEvent.click(screen.getByText("▶ Start Listening"));
+    expect(checkbox).toBeDisabled();
+  });
+
+  it("shows a practice summary instead of AI Coach, and never saves to session history", () => {
+    renderWorkspace();
+    fireEvent.click(screen.getByLabelText(/Practice Mode/));
+    fireEvent.click(screen.getByText("▶ Start Listening"));
+    act(() => {
+      lastInstance!.onresult?.({
+        resultIndex: 0,
+        results: [{ isFinal: true, 0: { transcript: "good evening everyone" } }],
+      });
+    });
+    fireEvent.click(screen.getByText("■ Stop"));
+
+    expect(screen.getByText("Practice Summary")).toBeInTheDocument();
+    expect(screen.queryByText("AI Coach")).not.toBeInTheDocument();
+    expect(screen.getByText(/wasn't saved to your session history/)).toBeInTheDocument();
+    expect(getSessionsForScript(script.id)).toEqual([]);
+  });
+
+  it("shows the real AI Coach report and saves normally when practice mode is off", () => {
+    renderWorkspace();
+    fireEvent.click(screen.getByText("▶ Start Listening"));
+    act(() => {
+      lastInstance!.onresult?.({
+        resultIndex: 0,
+        results: [{ isFinal: true, 0: { transcript: "good evening everyone" } }],
+      });
+    });
+    fireEvent.click(screen.getByText("■ Stop"));
+
+    expect(screen.getByText("AI Coach")).toBeInTheDocument();
+    expect(screen.queryByText("Practice Summary")).not.toBeInTheDocument();
+    expect(getSessionsForScript(script.id).length).toBe(1);
+  });
+
+  it("surfaces a live coaching nudge while listening in practice mode", () => {
+    vi.useFakeTimers();
+    renderWorkspace();
+    fireEvent.click(screen.getByLabelText(/Practice Mode/));
+    fireEvent.click(screen.getByText("▶ Start Listening"));
+
+    act(() => {
+      lastInstance!.onresult?.({
+        resultIndex: 0,
+        results: [{ isFinal: true, 0: { transcript: "one two three four five six seven eight" } }],
+      });
+    });
+    act(() => {
+      vi.advanceTimersByTime(300);
+    });
+
+    // 8 words spoken in an instant reads as an extremely high live wpm once
+    // the tick recomputes it -- deterministically lands on the "too fast"
+    // nudge without needing to control real wall-clock timing in a test.
+    expect(screen.getByText(/slowing down/i)).toBeInTheDocument();
+  });
+
+  it("does not show a live nudge when practice mode is off", () => {
+    vi.useFakeTimers();
+    renderWorkspace();
+    fireEvent.click(screen.getByText("▶ Start Listening"));
+
+    act(() => {
+      lastInstance!.onresult?.({
+        resultIndex: 0,
+        results: [{ isFinal: true, 0: { transcript: "one two three four five six seven eight" } }],
+      });
+    });
+    act(() => {
+      vi.advanceTimersByTime(300);
+    });
+
+    expect(screen.queryByText(/slowing down/i)).not.toBeInTheDocument();
   });
 });

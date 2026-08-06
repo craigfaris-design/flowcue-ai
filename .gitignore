@@ -1,0 +1,10 @@
+# Local Netlify folder
+.netlify
+
+# Android signing keystores must never be committed -- losing control of one
+# means losing the ability to publish updates to the same Play Store listing
+# forever. The real one lives outside this repo entirely (see
+# android/twa-manifest.json's signingKey.path); this is defense-in-depth in
+# case a copy ever ends up here locally for a build.
+*.keystore
+*.jks

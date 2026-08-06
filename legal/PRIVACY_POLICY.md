@@ -29,16 +29,16 @@ teleprompter. This policy explains what happens to your data when you use it.
 FlowCue AI needs microphone access to follow along as you speak. Depending on
 which speech recognizer is active:
 
-- **Deepgram (default, when configured):** your microphone audio is streamed
-  from your browser to FlowCue AI's own relay server, which forwards it
-  directly to Deepgram's real-time transcription API and streams the
-  resulting text back to your browser. FlowCue AI's server does not write
-  this audio to disk or a database at any point — it is forwarded in memory,
-  chunk by chunk, and discarded. Deepgram processes the audio as our
-  subprocessor to provide transcription; see
-  [Deepgram's privacy policy](https://deepgram.com/privacy) for how they
-  handle audio sent to their API.
-- **Browser fallback (used if Deepgram is unavailable):** your browser's
+- **AssemblyAI (default, when configured):** your microphone audio is
+  streamed from your browser to FlowCue AI's own relay server, which
+  forwards it directly to AssemblyAI's real-time transcription API and
+  streams the resulting text back to your browser. FlowCue AI's server does
+  not write this audio to disk or a database at any point — it is forwarded
+  in memory, chunk by chunk, and discarded. AssemblyAI processes the audio
+  as our subprocessor to provide transcription; see
+  [AssemblyAI's privacy policy](https://www.assemblyai.com/legal/privacy-policy)
+  for how they handle audio sent to their API.
+- **Browser fallback (used if AssemblyAI is unavailable):** your browser's
   built-in speech recognition is used instead, which sends audio directly to
   your browser vendor's own speech-recognition service (for example,
   Google's, in Chrome) — entirely outside FlowCue AI's servers or control.
@@ -71,8 +71,8 @@ will describe what changes.)
 
 ## Third-party services
 
-- **Deepgram** — receives streamed audio for transcription, as described
-  above, when Deepgram-based recognition is active.
+- **AssemblyAI** — receives streamed audio for transcription, as described
+  above, when AssemblyAI-based recognition is active.
 - **Google Fonts** — this app loads its typeface from Google's font CDN.
   Loading a font this way exposes your IP address and browser details to
   Google, the same as visiting any page that embeds a Google-hosted
@@ -113,9 +113,11 @@ before that change ships, not after.
 <details>
 <summary>Fact-finding basis for this draft (for Craig/legal reviewer, not end users)</summary>
 
-Verified directly against the code on 2026-07-28:
+Verified directly against the code on 2026-07-28, re-verified 2026-08-06
+after switching STT providers from Deepgram to AssemblyAI (cost -- see
+`server/README.md`):
 
-- Audio is forwarded byte-for-byte over WebSocket to Deepgram by
+- Audio is forwarded byte-for-byte over WebSocket to AssemblyAI by
   `server/src/sttRelay.ts`; no `fs`/file-write/DB-write calls exist in that
   file or elsewhere in `server/src` for audio or transcript content. Only
   `console.error(err)` exists server-side, for exceptions, not content.

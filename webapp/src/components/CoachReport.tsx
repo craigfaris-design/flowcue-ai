@@ -5,14 +5,25 @@ import "./CoachReport.css";
 interface CoachReportProps {
   latest: SessionRecord | null;
   history: SessionRecord[];
+  /** True when `latest` is an ephemeral Practice Mode summary (never
+   * written to storage) rather than a real saved session -- changes the
+   * heading/copy so it's never ambiguous whether this result was recorded,
+   * without needing a separate component for what's otherwise the exact
+   * same metrics display. */
+  isPractice?: boolean;
 }
 
-export function CoachReport({ latest, history }: CoachReportProps) {
+export function CoachReport({ latest, history, isPractice = false }: CoachReportProps) {
   if (!latest && history.length === 0) return null;
 
   return (
     <div className="coachReport">
-      <h3>AI Coach</h3>
+      <h3>{isPractice ? "Practice Summary" : "AI Coach"}</h3>
+      {isPractice && (
+        <p className="coachReport__practiceNote">
+          This run wasn't saved to your session history or confidence trend.
+        </p>
+      )}
       {latest && (
         <div className="coachReport__metrics">
           <div className="metric">

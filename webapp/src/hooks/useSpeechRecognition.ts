@@ -43,9 +43,12 @@ declare global {
 
 export interface UseSpeechRecognitionOptions {
   onWords: (words: string[]) => void;
+  /** BCP-47 tag (see lib/types.ts's SPEECH_LANGUAGES); defaults to English
+   * so existing callers that don't pass one keep today's behavior. */
+  language?: string;
 }
 
-export function useSpeechRecognition({ onWords }: UseSpeechRecognitionOptions) {
+export function useSpeechRecognition({ onWords, language }: UseSpeechRecognitionOptions) {
   const [listening, setListening] = useState(false);
   const [supported, setSupported] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -53,6 +56,11 @@ export function useSpeechRecognition({ onWords }: UseSpeechRecognitionOptions) {
   const listeningRef = useRef(false);
   const onWordsRef = useRef(onWords);
   onWordsRef.current = onWords;
+  // Read fresh at start() (like onWordsRef), not captured in the start
+  // callback's own closure -- a language change shouldn't require the
+  // component to remount this hook to take effect on the next Start press.
+  const languageRef = useRef(language);
+  languageRef.current = language;
 
   useEffect(() => {
     const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
@@ -69,7 +77,7 @@ export function useSpeechRecognition({ onWords }: UseSpeechRecognitionOptions) {
     const recognition = new SR();
     recognition.continuous = true;
     recognition.interimResults = true;
-    recognition.lang = "en-US";
+    recognition.lang = languageRef.current || "en-US";
 
     // Tracks how many words have already been emitted for each in-progress
     // result index. A real recognizer streams the same segment repeatedly as

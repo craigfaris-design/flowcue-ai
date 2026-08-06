@@ -54,8 +54,6 @@ export function RehearsalStage({
     }
   }, [state.sentenceIndex]);
 
-  let globalWordIdx = 0;
-
   return (
     <div className={"rehearsalStage" + (mirrorFlip ? " rehearsalStage--mirrored" : "")} ref={stageRef}>
       {state.frozen && listening && (
@@ -128,14 +126,12 @@ export function RehearsalStage({
                 </span>
               )}
               {words.map((w, wi) => {
-                const idx = globalWordIdx++;
-                const isKaraokeActive = visualMode === "word" && idx === state.cursorTokenIndex;
                 const openPopoverAt = (x: number, y: number) => setPopover({ word: w, x, y });
                 const displayText = syllabifyLongWords ? syllabifyForDisplay(w) : w;
                 return (
                   <span
                     key={wi}
-                    className={"word" + (isKaraokeActive ? " word--active" : "")}
+                    className="word"
                     role="button"
                     tabIndex={0}
                     aria-label={`${w}: show pronunciation help`}

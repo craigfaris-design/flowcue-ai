@@ -1,5 +1,19 @@
 # Deploying FlowCue AI for the Beta
 
+**Live now:** https://flowcue-ai.netlify.app (Netlify, deployed via `netlify deploy --prod
+--dir=dist` from this directory; site is linked, so future deploys are just
+`npm run build && netlify deploy --prod --dir=dist`).
+
+**Gotcha found deploying it:** a brand-new Netlify site/account created under a team
+context can come back with `sso_login: true` (both site- and account-level) by default
+-- this makes the site 401 and redirect every visitor, including anonymous ones, through
+a Netlify login page before they ever see the app. It's silent: the site *looks* live
+(build succeeds, URL resolves), but no real visitor without a Netlify account for this
+team could get past the login redirect. Confirmed and fixed via
+`netlify api updateSite --data '{"site_id":"<id>","body":{"sso_login":false}}'`; verified
+by clearing cookies and reloading (a real 401-free 200, not just a cached session).
+Check this again if a future site ever seems to work only when you personally test it.
+
 The beta plan and landing page assume testers can open a real URL. Right now the app
 only runs via `npm run dev` on your own machine, so nothing is reachable by testers yet
 — this is the one missing piece before outreach can actually start.

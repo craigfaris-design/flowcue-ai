@@ -1,6 +1,6 @@
 # FlowCue AI — Play Store Launch Checklist
 
-Last updated: 2026-07-28. This is the master list tying together everything
+Last updated: 2026-08-06. This is the master list tying together everything
 built for Play Store readiness across `webapp/`, `server/`, `android/`, and
 `legal/`. Organized by who can actually move each item forward — most of
 what's left is not code.
@@ -9,60 +9,59 @@ what's left is not code.
 
 - **PWA manifest + full icon set** — `webapp/public/manifest.json`,
   `webapp/public/icons/*`, wired into `index.html` and the service worker
-  precache list. Original artwork (no third-party logo resemblance —
-  see the logo-options review currently in progress with Craig for the
-  final direction).
-- **Android TWA scaffold** — `android/twa-manifest.json`,
-  `webapp/public/.well-known/assetlinks.json`, `android/README.md`
-  explaining the remaining steps. Placeholder domain/package id/signing
-  key references throughout, clearly marked.
-- **Production deployment scaffolding** — `server/Dockerfile`,
-  `server/docker-compose.yml` (`--profile full`), `webapp/DEPLOYMENT.md`.
-  Build + runtime stages verified locally (compiles, boots, serves).
-  Fixed a real cross-domain bug in the Deepgram relay URL resolution
-  (`VITE_STT_RELAY_URL`) that would've silently broken live cueing the
-  moment webapp and server ended up on different hosts.
+  precache list.
+- **Webapp deployed live** — `https://flowcue-ai.netlify.app`, real HTTPS,
+  verified reachable by an anonymous visitor (not just an authenticated
+  session — see `webapp/DEPLOYMENT.md`'s note on the SSO gotcha that was
+  found and fixed).
+- **Backend STT relay deployed live** — `https://flowcue-backend.onrender.com`
+  (Render, free tier), running AssemblyAI (switched from Deepgram for cost —
+  roughly a third of the per-minute rate). Verified end-to-end by connecting
+  directly to the deployed relay and confirming a real AssemblyAI session
+  opens, not just that the health check responds. Everything else (scripts,
+  session history, settings) still works via `localStorage` client-side with
+  no backend dependency — only live low-latency cueing needs the relay, and
+  it degrades gracefully to the browser's built-in recognizer if the relay
+  is ever unreachable.
+- **Native app splash screen** — matches the brand (black background,
+  pulsing logo via a JS-driven in-app loading screen; the native Android
+  splash frame itself is a static black-background-with-logo image, since
+  TWA's native splash can't animate without ejecting to custom native code).
+- **Android signing keystore generated** — `flowcue-upload` alias, stored
+  outside this repo at `C:\Users\Craig\flowcue-android-keystore\`, with
+  `*.keystore`/`*.jks` also gitignored as a backup safeguard.
+- **`assetlinks.json` deployed with the real SHA256 fingerprint** — verified
+  live at `https://flowcue-ai.netlify.app/.well-known/assetlinks.json`.
+- **`android/twa-manifest.json`** points at the real domain, not a
+  placeholder.
+- **`.aab` built and signed** — `android/app-release-bundle.aab`, verified
+  with `jarsigner -verify` ("jar verified", signed by the real keystore).
+  This is the exact file to upload in Play Console. See `android/README.md`
+  for the Windows-specific build gotchas hit getting here (all fixed, all
+  documented for next time).
 - **Privacy Policy draft** — `legal/PRIVACY_POLICY.md`.
 - **Terms of Service draft** — `legal/TERMS_OF_SERVICE.md`.
-- **Play Store Data Safety disclosure draft** — `legal/PLAY_STORE_DATA_SAFETY.md`.
-- **186/186 webapp tests passing**, **12/12 server tests passing** as of
-  this writing — see `webapp/README.md` / `server/README.md`.
+- **Play Store Data Safety disclosure draft** — `legal/PLAY_STORE_DATA_SAFETY.md`
+  (names AssemblyAI as the transcription subprocessor, matches current code).
+- All three legal/compliance docs kept in sync with the Deepgram->AssemblyAI
+  switch — verified no stale references to the old provider remain anywhere
+  a real user or Google reviewer would see them.
 
 ## 🔲 Blocked on Craig (money, accounts, decisions only he can make)
 
-None of this can be done on his behalf — see the standing note in
-`webapp/DEPLOYMENT.md` and `android/README.md` for why.
-
-1. **Pick and buy a real production domain**, or confirm using a free host's
-   subdomain (Netlify/Vercel) for launch. Needed before anything below can
-   be finalized with real values instead of placeholders.
-2. **Deploy the server somewhere real** (Render, Fly.io, Railway, a VM —
-   `server/Dockerfile` is ready for any of these) with a real Postgres
-   instance and `DEEPGRAM_API_KEY` set. Currently nothing is deployed —
-   everything runs on localhost only.
-3. **Deploy the webapp** to that domain (`webapp/DEPLOYMENT.md` has three
-   ready options), and set `VITE_STT_RELAY_URL` in its build environment to
-   the real server URL if they're on different domains.
-4. **Generate an Android signing keystore** (`keytool` command is in
-   `android/README.md`) and keep it somewhere safe outside this repo —
-   losing it means never being able to update the Play Store listing again
-   under the same app identity.
-5. **Get the real SHA256 fingerprint** from that keystore into
-   `webapp/public/.well-known/assetlinks.json`, replacing the placeholder,
-   and redeploy the webapp.
-6. **Build the `.aab`** via `bubblewrap build` (`android/README.md`) once
-   1–5 are done.
-7. **Create a Google Play Console account** ($25 one-time fee) — required
-   to create the listing and upload the `.aab` at all.
-8. **Decide on the Deepgram production plan** — confirm the API key used in
-   production is on a plan that can handle real usage/cost, not just a free
-   dev-tier key.
-9. **Store listing assets** — app description/marketing copy, screenshots
-   (from a real build, not this dev environment), and a final choice of
-   which generated icon/feature-graphic set to use — see the logo-options
-   review currently underway.
-10. **A real support contact** (email or URL) — both legal drafts and the
-    Play Console listing itself need one; currently a placeholder.
+1. **Create a Google Play Console account** ($25 one-time fee) — required to
+   create the listing and upload `android/app-release-bundle.aab` at all.
+   This is the one remaining hard blocker to actually submitting.
+2. **Store listing assets** — app description/marketing copy, screenshots
+   (from a real device install — `android/app-release-signed.apk` can be
+   sideloaded for this), and a final choice of which generated
+   icon/feature-graphic set to use.
+3. **A real support contact** (email or URL) — both legal drafts and the
+   Play Console listing itself need one; currently a placeholder.
+4. **Consider upgrading the Render free tier** ($7/month Starter) if the
+   ~50-second cold-start delay after idle periods turns out to be annoying
+   in real use — not required, purely a UX-vs-cost tradeoff for Craig to
+   decide once there's real usage data.
 
 ## 🔲 Blocked on legal review
 
@@ -80,19 +79,18 @@ None of this can be done on his behalf — see the standing note in
    publish it as if final.
 3. **`legal/PLAY_STORE_DATA_SAFETY.md`** must be submitted by Craig directly
    in Play Console (Google requires the account owner to do this) — the
-   draft has three explicit "before submitting this for real" checks at the
-   bottom (TLS actually live in production, Deepgram's current retention
-   terms, re-verify nothing has changed in the codebase since this was
-   written).
+   draft's "before submitting this for real" checks are down to one: read
+   AssemblyAI's current data retention/subprocessor terms before answering
+   the "ephemeral processing" question with full confidence (TLS-in-transit
+   is now confirmed true against the real deployment, not conditional).
 
 ## Suggested order
 
-1. Finish the logo direction (in progress).
-2. Domain + hosting decisions (Craig) → deploy webapp + server for real.
-3. Legal review of the two policy drafts, in parallel with step 2.
-4. Signing keystore + assetlinks.json real values → build the `.aab`.
-5. Play Console account → store listing assets → submit, with the
-   Data Safety form filled in against the *deployed* app's real behavior.
+1. Legal review of the two policy drafts.
+2. Play Console account → store listing assets (screenshots from a real
+   device install, description, support contact) → submit, with the Data
+   Safety form filled in against the deployed app's real behavior.
 
-Nothing left on the engineering side is blocking steps 2–5 — the scaffolding
-for all of it already exists and is tested.
+Nothing left on the engineering side is blocking step 2 — the webapp and
+backend are both live, the signed `.aab` exists, and the only remaining
+gate is Craig creating the Play Console account himself.
