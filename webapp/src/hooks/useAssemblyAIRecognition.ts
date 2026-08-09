@@ -234,6 +234,18 @@ export function useAssemblyAIRecognition({ onWords, relayUrl, language }: UseAss
     // model. Tracking emitted-word-count per turn_order and only emitting
     // the delta reuses that same proven pattern rather than inventing a
     // third dedup strategy.
+    //
+    // Deliberately never deleted: with format_turns enabled (see
+    // sttRelay.ts), AssemblyAI sends a *second* Turn message for the same
+    // turn_order after the unformatted end_of_turn=true one -- a
+    // turn_is_formatted replay of the same words, punctuated/cased.
+    // Deleting the entry on end_of_turn (as this used to) made that replay
+    // look like a brand-new turn starting from zero, so every word of the
+    // paragraph just spoken got emitted a second time right as the speaker
+    // paused -- exactly the paragraph-boundary desync reported in
+    // production. turn_order only ever increases and is never reused, so
+    // keeping old entries around costs nothing and can't cause stale
+    // matches.
     const emittedByTurn = new Map<number, number>();
 
     ws.onmessage = (event) => {
@@ -270,7 +282,6 @@ export function useAssemblyAIRecognition({ onWords, relayUrl, language }: UseAss
         if (trusted.length) onWordsRef.current(trusted.map((w) => w.text));
         emittedByTurn.set(msg.turn_order, msg.words.length);
       }
-      if (msg.end_of_turn) emittedByTurn.delete(msg.turn_order);
     };
 
     ws.onerror = () => {

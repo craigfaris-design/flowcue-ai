@@ -169,6 +169,29 @@ describe("useAssemblyAIRecognition", () => {
     expect(result.current.error).toBeNull();
   });
 
+  it("does not re-emit a turn's words when AssemblyAI replays them formatted (format_turns' second end_of_turn message, same turn_order)", async () => {
+    const words: string[][] = [];
+    await startAndConnect((w) => words.push(w));
+
+    act(() => {
+      lastSocket!.simulateMessage(turn(0, [{ text: "Good" }, { text: "evening" }], true));
+    });
+    // AssemblyAI's format_turns behavior: after the unformatted end_of_turn
+    // message, a second Turn message for the SAME turn_order arrives with
+    // turn_is_formatted:true and punctuated/cased text -- not new speech.
+    act(() => {
+      lastSocket!.simulateMessage({
+        type: "Turn",
+        turn_order: 0,
+        end_of_turn: true,
+        turn_is_formatted: true,
+        words: [{ text: "Good" }, { text: "evening," }],
+      });
+    });
+
+    expect(words).toEqual([["Good", "evening"]]);
+  });
+
   it("does not leak emitted-word tracking between separate turns", async () => {
     const words: string[][] = [];
     await startAndConnect((w) => words.push(w));
