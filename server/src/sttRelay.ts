@@ -66,6 +66,19 @@ function assemblyAiUrl(bcp47Language: string): string {
     language_codes: languageCode,
     format_turns: "true",
     include_partial_turns: "true",
+    // AssemblyAI's "Balanced" default (max_turn_silence: 1280ms) waits over
+    // a full second of silence before finalizing a turn -- reported in
+    // production as a multi-second pause after finishing a paragraph before
+    // cueing picks back up. This app has no reason to hold back the way a
+    // voice agent does (nothing bad happens if a turn ends "too eagerly" --
+    // ingestWord() just keeps matching across the boundary), so this uses
+    // AssemblyAI's own documented "Aggressive" preset values instead,
+    // confirmed accepted by this exact speech_model via a direct WS test
+    // against the live API before deploying. Verified with real audio
+    // in production; revert to the Balanced defaults (drop these two
+    // params) if that turns out to hurt accuracy more than it helps.
+    min_turn_silence: "160",
+    max_turn_silence: "400",
   });
   return `wss://streaming.assemblyai.com/v3/ws?${params.toString()}`;
 }
