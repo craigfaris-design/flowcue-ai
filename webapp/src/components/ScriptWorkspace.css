@@ -86,6 +86,23 @@
   color: var(--text-dim);
 }
 .panelCard__row { display: flex; gap: 8px; flex-wrap: wrap; }
+.panelCard__wpmRow { margin-top: 10px; align-items: center; }
+.panelCard__wpmLabel { font-size: 12px; color: var(--text-dim); margin-right: 2px; }
+.panelCard__wpmValue { font-size: 13px; font-weight: 600; min-width: 62px; text-align: center; }
+.btn--small { padding: 4px 12px; font-size: 15px; line-height: 1; }
+.btn--link {
+  appearance: none;
+  border: none;
+  background: none;
+  padding: 0;
+  margin-top: 10px;
+  font-size: 11.5px;
+  font-weight: 600;
+  color: var(--peach-strong);
+  text-decoration: underline;
+  cursor: pointer;
+  display: block;
+}
 .panelCard__warning { font-size: 11.5px; color: var(--text-dim); margin-top: 8px; line-height: 1.4; }
 .panelCard__status { margin-top: 10px; font-size: 12px; color: var(--text-dim); }
 .panelCard__status--live { color: var(--mint); font-weight: 600; }

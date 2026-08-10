@@ -19,6 +19,11 @@ interface RehearsalStageProps {
    * passed to the pronunciation popover or the aria-label (both read more
    * naturally, and analyze() expects the plain word, without the dots). */
   syllabifyLongWords?: boolean;
+  /** Offline Reading mode's resync gesture: tap any line to jump the paced
+   * cursor there. Undefined during normal (speech-driven) live cueing,
+   * where a tap should only open the pronunciation popover, not also yank
+   * the sync engine's own cursor around. */
+  onSentenceTap?: (sentenceIndex: number) => void;
 }
 
 function confidenceLevel(state: SyncState): "high" | "medium" | "low" {
@@ -36,6 +41,7 @@ export function RehearsalStage({
   listening,
   mirrorFlip = false,
   syllabifyLongWords = false,
+  onSentenceTap,
 }: RehearsalStageProps) {
   const [popover, setPopover] = useState<{ word: string; x: number; y: number } | null>(null);
   const stageRef = useRef<HTMLDivElement>(null);
@@ -85,7 +91,8 @@ export function RehearsalStage({
           let cls =
             "sentence" +
             (sIdx < state.sentenceIndex ? " sentence--done" : "") +
-            (isActive ? " sentence--active" : "");
+            (isActive ? " sentence--active" : "") +
+            (onSentenceTap ? " sentence--tappable" : "");
 
           if (visualMode === "focus") {
             // A constrained teleprompter "reading window": only the
@@ -113,6 +120,12 @@ export function RehearsalStage({
               className={cls}
               data-sentence-idx={sIdx}
               aria-label={showConfidence ? `Tracking confidence: ${confidenceLevel(state)}` : undefined}
+              // Tapping anywhere in a line -- including a word, whose own
+              // onClick below still fires first for the pronunciation
+              // popover -- resyncs Offline Reading's paced cursor to here.
+              // That's the actual desired behavior, not a conflict: tapping
+              // a word you're looking at *is* pointing at "I'm here."
+              onClick={onSentenceTap ? () => onSentenceTap(sIdx) : undefined}
             >
               {showConfidence && (
                 // Color alone isn't a reliable signal for colorblind users,

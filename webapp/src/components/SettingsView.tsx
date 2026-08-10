@@ -73,11 +73,12 @@ export function SettingsView({ settings, onChange, onClearAllData }: SettingsVie
       <div className="settingsCard">
         <h3>Offline Mode</h3>
         <p>
-          For privacy-sensitive rehearsals, restricts FlowCue AI to on-device-only speech
-          recognition (see the Technical Architecture doc's hybrid on-device/cloud plan). Not yet
-          available in this beta build: this build's only recognizer isn't guaranteed on-device, so
-          enabling this turns off live cueing entirely rather than silently sending audio to the
-          cloud anyway.
+          For privacy-sensitive rehearsals or genuinely no wifi/cellular connection, turns off
+          speech-based live cueing (neither recognizer in this beta build is on-device, so nothing
+          here ever touches the network or your mic while this is on) and replaces it with Offline
+          Reading instead: the script advances on its own at a set pace, with a tap-any-line gesture
+          to resync instantly. You can also switch into Offline Reading for a single session without
+          changing this setting -- look for "Read offline instead" on the rehearsal screen.
         </p>
         <label className="switchRow switchRow--light">
           <input

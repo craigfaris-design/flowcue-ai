@@ -66,6 +66,12 @@
 
 .rehearsalStage__empty { color: var(--text-dim); font-size: 14px; }
 
+/* Offline Reading mode's resync gesture -- tap any line to jump the paced
+   cursor there. Padding/margin keeps the enlarged hit target from shifting
+   surrounding line spacing. */
+.sentence--tappable { cursor: pointer; margin: 0 -8px; padding: 0 8px; border-radius: 6px; }
+.sentence--tappable:hover { background: rgba(255,255,255,0.05); }
+
 /* Focus zone: a constrained teleprompter "reading window" -- only the
    active line and its immediate neighbors stay legible. No transition on
    opacity, matching the rest of the app's zero-animation-lag cueing. */

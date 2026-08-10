@@ -65,7 +65,7 @@ describe("ScriptWorkspace offline mode", () => {
     expect(screen.queryByText(/Live cueing is off while Offline Mode is on/)).not.toBeInTheDocument();
   });
 
-  it("disables live cueing and explains why when offline mode is on", () => {
+  it("replaces live cueing with Offline Reading (paced, no mic/network) when offline mode is on", () => {
     render(
       <ScriptWorkspace
         script={script}
@@ -79,14 +79,13 @@ describe("ScriptWorkspace offline mode", () => {
       />
     );
 
-    const startBtn = screen.getByText("▶ Start Listening").closest("button");
-    expect(startBtn).toBeDisabled();
-    expect(screen.getByText(/Live cueing is off while Offline Mode is on/)).toBeInTheDocument();
-
-    // Clicking a disabled button is a no-op, but guard against the handler
-    // itself starting recognition if disabled state is ever bypassed.
-    fireEvent.click(startBtn!);
-    expect(screen.getByText("Stopped")).toBeInTheDocument();
+    expect(screen.queryByText("▶ Start Listening")).not.toBeInTheDocument();
+    expect(screen.getByText("Offline Reading")).toBeInTheDocument();
+    expect(screen.getByText(/▶/)).toBeInTheDocument();
+    expect(screen.getByText(/No mic or internet connection is used here/)).toBeInTheDocument();
+    // Forced on by the Settings toggle -- no way back to live cueing from
+    // here without turning the setting off.
+    expect(screen.queryByText("Switch back to live cueing")).not.toBeInTheDocument();
   });
 
   it("disclosure text describes AssemblyAI by default, not 'never sent anywhere'", () => {
@@ -230,6 +229,183 @@ describe("ScriptWorkspace offline mode", () => {
     expect(screen.getByText("Tracking holds")).toBeInTheDocument();
     // A clean run with no ad-libbed/mismatched speech never freezes.
     expect(screen.getByText("Tracking holds").nextSibling?.textContent).toBe("0");
+  });
+});
+
+describe("ScriptWorkspace offline reading", () => {
+  const multiSentenceScript: Script = {
+    ...script,
+    id: "s2",
+    body: "Good evening everyone. Thank you for being here tonight. It means a lot to us.",
+  };
+
+  afterEach(() => {
+    vi.useRealTimers();
+    Object.defineProperty(navigator, "onLine", { value: true, configurable: true });
+  });
+
+  it("offers a manual opt-in even when offline mode is off and the connection is fine", () => {
+    render(
+      <ScriptWorkspace
+        script={script}
+        defaultVisualMode="sentence"
+        offlineModeEnabled={false}
+        syllabifyLongWords={false}
+        speechLanguage="en-US"
+        onBack={noop}
+        onScriptUpdated={noop}
+        onScriptDeleted={noop}
+      />
+    );
+
+    expect(screen.getByText("▶ Start Listening")).toBeInTheDocument();
+    fireEvent.click(screen.getByText(/Read offline instead \(no mic or internet needed\)/));
+
+    expect(screen.getByText("Offline Reading")).toBeInTheDocument();
+    expect(screen.queryByText("▶ Start Listening")).not.toBeInTheDocument();
+    // Not forced by Settings this time -- can switch back.
+    fireEvent.click(screen.getByText("Switch back to live cueing"));
+    expect(screen.getByText("▶ Start Listening")).toBeInTheDocument();
+  });
+
+  it("proactively suggests Offline Reading when no internet connection is detected", () => {
+    Object.defineProperty(navigator, "onLine", { value: false, configurable: true });
+    render(
+      <ScriptWorkspace
+        script={script}
+        defaultVisualMode="sentence"
+        offlineModeEnabled={false}
+        syllabifyLongWords={false}
+        speechLanguage="en-US"
+        onBack={noop}
+        onScriptUpdated={noop}
+        onScriptDeleted={noop}
+      />
+    );
+
+    expect(screen.getByText(/No internet connection detected/)).toBeInTheDocument();
+    fireEvent.click(screen.getByText("Read offline instead", { selector: "button" }));
+    expect(screen.getByText("Offline Reading")).toBeInTheDocument();
+  });
+
+  it("advances the cursor over time at the set pace once started, with no mic/network involved", () => {
+    vi.useFakeTimers();
+    const { container } = render(
+      <ScriptWorkspace
+        script={multiSentenceScript}
+        defaultVisualMode="sentence"
+        offlineModeEnabled={true}
+        syllabifyLongWords={false}
+        speechLanguage="en-US"
+        onBack={noop}
+        onScriptUpdated={noop}
+        onScriptDeleted={noop}
+      />
+    );
+
+    fireEvent.click(screen.getByText(/▶ Start Reading/));
+    expect(screen.getByText(/Reading \(paced, offline\)/)).toBeInTheDocument();
+
+    act(() => {
+      vi.advanceTimersByTime(6000);
+    });
+
+    // Some sentence beyond the first should now be marked active/done --
+    // i.e. the highlight actually moved forward on its own.
+    const firstSentence = container.querySelector('[data-sentence-idx="0"]');
+    expect(firstSentence?.className).toMatch(/sentence--done|sentence--active/);
+  });
+
+  it("pauses in place and resumes from the same spot, not from the start", () => {
+    vi.useFakeTimers();
+    render(
+      <ScriptWorkspace
+        script={multiSentenceScript}
+        defaultVisualMode="sentence"
+        offlineModeEnabled={true}
+        syllabifyLongWords={false}
+        speechLanguage="en-US"
+        onBack={noop}
+        onScriptUpdated={noop}
+        onScriptDeleted={noop}
+      />
+    );
+
+    fireEvent.click(screen.getByText(/▶ Start Reading/));
+    act(() => {
+      vi.advanceTimersByTime(3000);
+    });
+    fireEvent.click(screen.getByText("⏸ Pause"));
+    expect(screen.getByText("Stopped")).toBeInTheDocument();
+
+    // Resuming should say "Resume", not restart the "Start Reading" label.
+    expect(screen.getByText(/▶ Resume/)).toBeInTheDocument();
+  });
+
+  it("tapping a line jumps the paced cursor there directly", () => {
+    vi.useFakeTimers();
+    const { container } = render(
+      <ScriptWorkspace
+        script={multiSentenceScript}
+        defaultVisualMode="sentence"
+        offlineModeEnabled={true}
+        syllabifyLongWords={false}
+        speechLanguage="en-US"
+        onBack={noop}
+        onScriptUpdated={noop}
+        onScriptDeleted={noop}
+      />
+    );
+
+    fireEvent.click(screen.getByText(/▶ Start Reading/));
+    act(() => {
+      vi.advanceTimersByTime(8000); // drift toward the end of the script
+    });
+
+    // Tap back to the first sentence to resync.
+    const firstSentence = container.querySelector('[data-sentence-idx="0"]') as HTMLElement;
+    fireEvent.click(firstSentence);
+    expect(firstSentence.className).toMatch(/sentence--active/);
+  });
+
+  it("adjusts pace with the +/- controls", () => {
+    render(
+      <ScriptWorkspace
+        script={multiSentenceScript}
+        defaultVisualMode="sentence"
+        offlineModeEnabled={true}
+        syllabifyLongWords={false}
+        speechLanguage="en-US"
+        onBack={noop}
+        onScriptUpdated={noop}
+        onScriptDeleted={noop}
+      />
+    );
+
+    expect(screen.getByText("140 wpm")).toBeInTheDocument();
+    fireEvent.click(screen.getByLabelText("Faster"));
+    expect(screen.getByText("150 wpm")).toBeInTheDocument();
+    fireEvent.click(screen.getByLabelText("Slower"));
+    fireEvent.click(screen.getByLabelText("Slower"));
+    expect(screen.getByText("130 wpm")).toBeInTheDocument();
+  });
+
+  it("never shows a mic-based 'nothing heard yet' or listening status while reading offline", () => {
+    render(
+      <ScriptWorkspace
+        script={script}
+        defaultVisualMode="sentence"
+        offlineModeEnabled={true}
+        syllabifyLongWords={false}
+        speechLanguage="en-US"
+        onBack={noop}
+        onScriptUpdated={noop}
+        onScriptDeleted={noop}
+      />
+    );
+
+    expect(screen.queryByText(/nothing yet -- check mic input/)).not.toBeInTheDocument();
+    expect(screen.queryByText("● Listening")).not.toBeInTheDocument();
   });
 });
 

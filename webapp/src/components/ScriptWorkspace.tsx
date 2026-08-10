@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { SyncEngine, expandSpokenWord, type SyncState } from "../engine/syncEngine";
+import { PacedCursor, DEFAULT_WPM, MIN_WPM, MAX_WPM } from "../engine/pacedCursor";
 import { computeAdaptiveOptions } from "../engine/adaptiveTuning";
 import { useLiveRecognition } from "../hooks/useLiveRecognition";
 import type { Script, SessionRecord, VisualMode } from "../lib/types";
@@ -74,6 +75,107 @@ export function ScriptWorkspace({
     [script.body, adaptiveTuning.options]
   );
   const [syncState, setSyncState] = useState<SyncState>(() => engine.getState());
+
+  // Offline Reading: neither speech recognizer here is on-device (AssemblyAI
+  // is cloud-only by design, its fallback streams to the browser vendor's
+  // cloud too), so with no wifi/cellular there's nothing for SyncEngine to
+  // listen to. This is the alternative path -- see pacedCursor.ts -- that
+  // needs no network or mic at all. `offlineReadingActive` is the session-
+  // only manual opt-in (via the "Read offline instead" link below); the
+  // Settings toggle `offlineModeEnabled` forces it on unconditionally, same
+  // intent that toggle already had ("don't let this app touch the network"),
+  // just actually usable now instead of a dead end.
+  const [offlineReadingActive, setOfflineReadingActive] = useState(false);
+  const showOfflineReading = offlineModeEnabled || offlineReadingActive;
+
+  // Personalizes the starting pace from this device's own rehearsal history
+  // (same source adaptiveTuning.ts already reads), falling back to the same
+  // 140wpm center sessionMetrics.ts treats as "ideal" when there isn't any
+  // yet -- computed once per mount, like adaptiveTuning above, so it can't
+  // shift under the presenter mid-session.
+  const defaultWpm = useMemo(() => {
+    const recent = storage.getRecentSessions(10).filter((s) => s.wordCount > 0);
+    if (!recent.length) return DEFAULT_WPM;
+    const avg = recent.reduce((sum, s) => sum + s.wpm, 0) / recent.length;
+    return Math.round(Math.max(MIN_WPM, Math.min(MAX_WPM, avg)));
+  }, []);
+  const [wpm, setWpm] = useState(defaultWpm);
+  // Recreated only when the script body changes (mirrors `engine` above),
+  // deliberately NOT when `wpm` changes -- a pace adjustment should glide,
+  // not reset the reader back to the start. setWpm() (the method) is the
+  // only thing allowed to change pace after creation; see handleWpmChange.
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  const pacedCursor = useMemo(() => new PacedCursor(script.body, wpm), [script.body]);
+  const [pacedSyncState, setPacedSyncState] = useState<SyncState>(() => pacedCursor.getState());
+  const [offlinePlaying, setOfflinePlaying] = useState(false);
+
+  useEffect(() => {
+    // Reset whenever we switch to a freshly (re)created cursor, same as the
+    // SyncEngine reset effect below.
+    setOfflinePlaying(false);
+    setPacedSyncState(pacedCursor.getState());
+  }, [pacedCursor]);
+
+  useEffect(() => {
+    if (!offlinePlaying) return;
+    const id = setInterval(() => {
+      setPacedSyncState(pacedCursor.getState());
+      if (pacedCursor.reachedEnd()) {
+        pacedCursor.pause();
+        setOfflinePlaying(false);
+      }
+    }, 300);
+    return () => clearInterval(id);
+  }, [offlinePlaying, pacedCursor]);
+
+  function handleOfflineStart() {
+    pacedCursor.start();
+    setOfflinePlaying(true);
+    setPacedSyncState(pacedCursor.getState());
+    for (const selector of [".rehearsalStage", ".app__main"]) {
+      const el = document.querySelector(selector);
+      if (el && typeof el.scrollTo === "function") el.scrollTo({ top: 0, behavior: "auto" });
+    }
+  }
+  function handleOfflinePause() {
+    pacedCursor.pause();
+    setOfflinePlaying(false);
+    setPacedSyncState(pacedCursor.getState());
+  }
+  function handleOfflineReset() {
+    pacedCursor.reset();
+    setOfflinePlaying(false);
+    setPacedSyncState(pacedCursor.getState());
+  }
+  function handleOfflineJump(sentenceIndex: number) {
+    pacedCursor.jumpToSentence(sentenceIndex);
+    setPacedSyncState(pacedCursor.getState());
+  }
+  function handleWpmChange(nextWpm: number) {
+    const clamped = Math.max(MIN_WPM, Math.min(MAX_WPM, nextWpm));
+    pacedCursor.setWpm(clamped);
+    setWpm(clamped);
+  }
+
+  // Drives the "no internet connection" proactive suggestion below --
+  // `navigator.onLine` false is reliable (a real offline signal); true
+  // doesn't guarantee real connectivity (e.g. wifi with no internet), so
+  // this only ever *offers* Offline Reading, never blocks live cueing.
+  const [isOnline, setIsOnline] = useState(() => (typeof navigator === "undefined" ? true : navigator.onLine));
+  useEffect(() => {
+    function goOnline() {
+      setIsOnline(true);
+    }
+    function goOffline() {
+      setIsOnline(false);
+    }
+    window.addEventListener("online", goOnline);
+    window.addEventListener("offline", goOffline);
+    return () => {
+      window.removeEventListener("online", goOnline);
+      window.removeEventListener("offline", goOffline);
+    };
+  }, []);
 
   const sessionRef = useRef({ startedAt: 0, wordCount: 0, fillerCount: 0, freezeCount: 0 });
   // Tracks the false->true edge of `frozen` (a session's freeze *count*,
@@ -185,11 +287,14 @@ export function ScriptWorkspace({
     // Neither of this beta's recognizers is on-device: AssemblyAI is cloud-only
     // by design, and its fallback (the browser's Web Speech API) streams
     // audio to the browser vendor's cloud service. If the user has opted
-    // into Offline Mode (privacy-sensitive use cases per the Technical
-    // Architecture doc), silently starting cloud-dependent recognition
-    // anyway would violate that choice, so refuse rather than guess. See the
-    // `!supported || offlineModeEnabled` guard on the Start button below.
-    if (offlineModeEnabled) return;
+    // into Offline Mode (privacy-sensitive use cases, or genuinely no
+    // connection -- see PacedCursor/showOfflineReading above), silently
+    // starting cloud-dependent recognition anyway would violate that
+    // choice, so refuse rather than guess. Defensive only: the Start
+    // Listening button itself isn't rendered at all while
+    // showOfflineReading is true (see the panel below), so this shouldn't
+    // be reachable through the UI.
+    if (showOfflineReading) return;
     sessionRef.current = { startedAt: Date.now(), wordCount: 0, fillerCount: 0, freezeCount: 0 };
     wasFrozenRef.current = false;
     setLatestSession(null);
@@ -312,79 +417,135 @@ export function ScriptWorkspace({
         <div className="workspace__body">
           <div className="workspace__panel">
             <div className="panelCard">
-              <h3>Live Cueing</h3>
-              <div className="panelCard__row">
-                {!listening ? (
-                  <button
-                    className="btn btn--primary"
-                    onClick={handleStart}
-                    disabled={!supported || offlineModeEnabled}
-                  >
-                    ▶ Start Listening
+              <h3>{showOfflineReading ? "Offline Reading" : "Live Cueing"}</h3>
+              {showOfflineReading ? (
+                <>
+                  <div className="panelCard__row">
+                    {!offlinePlaying ? (
+                      <button className="btn btn--primary" onClick={handleOfflineStart}>
+                        ▶ {pacedSyncState.cursorTokenIndex === -1 ? "Start Reading" : "Resume"}
+                      </button>
+                    ) : (
+                      <button className="btn btn--danger" onClick={handleOfflinePause}>
+                        ⏸ Pause
+                      </button>
+                    )}
+                    <button className="btn btn--secondary" onClick={handleOfflineReset}>
+                      Reset
+                    </button>
+                  </div>
+                  <div className="panelCard__row panelCard__wpmRow">
+                    <span className="panelCard__wpmLabel">Pace</span>
+                    <button
+                      className="btn btn--secondary btn--small"
+                      onClick={() => handleWpmChange(wpm - 10)}
+                      aria-label="Slower"
+                      disabled={wpm <= MIN_WPM}
+                    >
+                      −
+                    </button>
+                    <span className="panelCard__wpmValue">{wpm} wpm</span>
+                    <button
+                      className="btn btn--secondary btn--small"
+                      onClick={() => handleWpmChange(wpm + 10)}
+                      aria-label="Faster"
+                      disabled={wpm >= MAX_WPM}
+                    >
+                      +
+                    </button>
+                  </div>
+                  <div className={"panelCard__status" + (offlinePlaying ? " panelCard__status--live" : "")}>
+                    {offlinePlaying ? "● Reading (paced, offline)" : "Stopped"}
+                  </div>
+                  <div className="panelCard__disclosure">
+                    No mic or internet connection is used here -- the script advances on its own at the
+                    pace above. Tap any line (or a word, same as pronunciation help) to jump straight
+                    there if it gets ahead of or behind your actual speaking.
+                  </div>
+                  {!offlineModeEnabled && (
+                    <button className="btn--link" onClick={() => setOfflineReadingActive(false)}>
+                      Switch back to live cueing
+                    </button>
+                  )}
+                </>
+              ) : (
+                <>
+                  <div className="panelCard__row">
+                    {!listening ? (
+                      <button className="btn btn--primary" onClick={handleStart} disabled={!supported}>
+                        ▶ Start Listening
+                      </button>
+                    ) : (
+                      <button className="btn btn--danger" onClick={handleStop}>
+                        ■ Stop
+                      </button>
+                    )}
+                    <button className="btn btn--secondary" onClick={handleReset}>
+                      Reset
+                    </button>
+                  </div>
+                  <label className="switchRow">
+                    <input
+                      type="checkbox"
+                      checked={practiceMode}
+                      disabled={listening}
+                      onChange={(e) => setPracticeMode(e.target.checked)}
+                    />
+                    <span>Practice Mode -- live coaching tips, doesn't count toward your session history</span>
+                  </label>
+                  {!supported && (
+                    <div className="panelCard__warning">
+                      This browser doesn't support live speech recognition (mic access, or Chrome/Edge for
+                      the fallback recognizer, is required).
+                    </div>
+                  )}
+                  {!isOnline && (
+                    <div className="panelCard__warning" role="alert">
+                      No internet connection detected -- live cueing needs one.{" "}
+                      <button className="btn--link" onClick={() => setOfflineReadingActive(true)}>
+                        Read offline instead
+                      </button>
+                    </div>
+                  )}
+                  {supported && recognitionError && (
+                    <div className="panelCard__warning" role="alert">
+                      {recognitionError}{" "}
+                      <button className="btn--link" onClick={() => setOfflineReadingActive(true)}>
+                        Read offline instead
+                      </button>
+                    </div>
+                  )}
+                  <div className={"panelCard__status" + (listening ? " panelCard__status--live" : "")}>
+                    {listening ? "● Listening" : "Stopped"}
+                    {listening && usingFallback && " (browser fallback)"}
+                  </div>
+                  {listening && (
+                    <div className="panelCard__lastHeard" aria-live="polite">
+                      Last heard: <span>{lastHeard || "(nothing yet -- check mic input)"}</span>
+                    </div>
+                  )}
+                  {listening && practiceMode && liveNudge && (
+                    <div className="panelCard__nudge" aria-live="polite">
+                      💬 {liveNudge}
+                    </div>
+                  )}
+                  <div className="panelCard__disclosure">
+                    {usingFallback
+                      ? "AssemblyAI (this beta's low-latency recognizer) isn't reachable right now, so this session fell back to your browser's built-in speech recognition. In most browsers (e.g. Chrome), that means audio is sent to the browser vendor's cloud service for transcription."
+                      : "Audio streams to AssemblyAI for low-latency transcription via FlowCue AI's own relay -- the AssemblyAI API key stays on that server and never reaches this page."}{" "}
+                    FlowCue AI itself does not store audio.
+                  </div>
+                  {adaptiveTuning.isPersonalized && (
+                    <div className="panelCard__disclosure">
+                      Personalized to how live cueing has tracked you on this device over your last{" "}
+                      {adaptiveTuning.sessionsUsed} sessions -- entirely local, nothing about your speech is
+                      sent anywhere to compute this.
+                    </div>
+                  )}
+                  <button className="btn--link" onClick={() => setOfflineReadingActive(true)}>
+                    Read offline instead (no mic or internet needed)
                   </button>
-                ) : (
-                  <button className="btn btn--danger" onClick={handleStop}>
-                    ■ Stop
-                  </button>
-                )}
-                <button className="btn btn--secondary" onClick={handleReset}>
-                  Reset
-                </button>
-              </div>
-              <label className="switchRow">
-                <input
-                  type="checkbox"
-                  checked={practiceMode}
-                  disabled={listening}
-                  onChange={(e) => setPracticeMode(e.target.checked)}
-                />
-                <span>Practice Mode -- live coaching tips, doesn't count toward your session history</span>
-              </label>
-              {!supported && (
-                <div className="panelCard__warning">
-                  This browser doesn't support live speech recognition (mic access, or Chrome/Edge for
-                  the fallback recognizer, is required).
-                </div>
-              )}
-              {supported && offlineModeEnabled && (
-                <div className="panelCard__warning">
-                  Live cueing is off while Offline Mode is on. This beta build's only recognizer isn't
-                  guaranteed on-device yet, so it won't run rather than silently break that choice.
-                  Turn off Offline Mode in Settings to rehearse now.
-                </div>
-              )}
-              {supported && !offlineModeEnabled && recognitionError && (
-                <div className="panelCard__warning" role="alert">
-                  {recognitionError}
-                </div>
-              )}
-              <div className={"panelCard__status" + (listening ? " panelCard__status--live" : "")}>
-                {listening ? "● Listening" : "Stopped"}
-                {listening && usingFallback && " (browser fallback)"}
-              </div>
-              {listening && (
-                <div className="panelCard__lastHeard" aria-live="polite">
-                  Last heard: <span>{lastHeard || "(nothing yet -- check mic input)"}</span>
-                </div>
-              )}
-              {listening && practiceMode && liveNudge && (
-                <div className="panelCard__nudge" aria-live="polite">
-                  💬 {liveNudge}
-                </div>
-              )}
-              <div className="panelCard__disclosure">
-                {usingFallback
-                  ? "AssemblyAI (this beta's low-latency recognizer) isn't reachable right now, so this session fell back to your browser's built-in speech recognition. In most browsers (e.g. Chrome), that means audio is sent to the browser vendor's cloud service for transcription."
-                  : "Audio streams to AssemblyAI for low-latency transcription via FlowCue AI's own relay -- the AssemblyAI API key stays on that server and never reaches this page."}{" "}
-                FlowCue AI itself does not store audio. Fully on-device recognition is planned but not
-                yet available (see Offline Mode in Settings).
-              </div>
-              {adaptiveTuning.isPersonalized && (
-                <div className="panelCard__disclosure">
-                  Personalized to how live cueing has tracked you on this device over your last{" "}
-                  {adaptiveTuning.sessionsUsed} sessions -- entirely local, nothing about your speech is
-                  sent anywhere to compute this.
-                </div>
+                </>
               )}
             </div>
 
@@ -421,11 +582,16 @@ export function ScriptWorkspace({
             </div>
 
             <div className="panelCard">
-              <h3>Offline</h3>
+              <h3>Offline Script Storage</h3>
               <label className="switchRow">
                 <input type="checkbox" checked={script.cachedOffline} onChange={toggleOfflineCache} />
                 <span>{script.cachedOffline ? "Cached for offline rehearsal" : "Not cached for offline use"}</span>
               </label>
+              <p className="panelCard__hint">
+                Every script already lives on this device (there's no server dependency for the script
+                text itself) -- this just badges it in your Library as one you've deliberately kept for
+                offline use.
+              </p>
             </div>
 
             <CoachReport latest={latestSession} history={history} isPractice={latestWasPractice} />
@@ -434,11 +600,12 @@ export function ScriptWorkspace({
           <RehearsalStage
             sentences={engine.sentences}
             tokens={engine.tokens}
-            state={syncState}
+            state={showOfflineReading ? pacedSyncState : syncState}
             visualMode={visualMode}
-            listening={listening}
+            listening={showOfflineReading ? true : listening}
             mirrorFlip={mirrorFlip}
             syllabifyLongWords={syllabifyLongWords}
+            onSentenceTap={showOfflineReading ? handleOfflineJump : undefined}
           />
         </div>
       )}
