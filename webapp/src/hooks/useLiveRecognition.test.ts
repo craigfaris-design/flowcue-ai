@@ -129,6 +129,34 @@ describe("useLiveRecognition", () => {
     expect(lastRecognition).toBeNull();
   });
 
+  it("surfaces AssemblyAI's ready handshake gap, but treats the Web Speech fallback as ready as soon as it's listening", async () => {
+    const { result } = renderHook(() => useLiveRecognition({ onWords: () => {} }));
+
+    await act(async () => {
+      result.current.start();
+    });
+    // Mic capturing (listening) started, but AssemblyAI's relay handshake
+    // hasn't completed yet -- this is exactly the gap a nervous presenter
+    // needs surfaced instead of assuming "Listening" already means "heard."
+    expect(result.current.listening).toBe(true);
+    expect(result.current.ready).toBe(false);
+
+    await act(async () => {
+      lastSocket!.readyState = MockWebSocket.OPEN;
+      lastSocket!.simulateMessage({ type: "ready" });
+    });
+    expect(result.current.ready).toBe(true);
+
+    // Once AssemblyAI drops and the fallback takes over, there's no separate
+    // handshake to wait on -- ready should track listening directly.
+    act(() => {
+      lastSocket!.onclose?.();
+    });
+    expect(result.current.usingFallback).toBe(true);
+    expect(result.current.listening).toBe(true);
+    expect(result.current.ready).toBe(true);
+  });
+
   it("start() is a no-op while already listening, so it can never run both providers at once", async () => {
     const { result } = renderHook(() => useLiveRecognition({ onWords: () => {} }));
 

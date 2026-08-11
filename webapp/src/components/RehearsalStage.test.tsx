@@ -1,5 +1,5 @@
-import { describe, it, expect } from "vitest";
-import { render, fireEvent } from "@testing-library/react";
+import { describe, it, expect, vi, afterEach } from "vitest";
+import { render, fireEvent, act } from "@testing-library/react";
 import { RehearsalStage } from "./RehearsalStage";
 import { tokenizeScript, type SyncState } from "../engine/syncEngine";
 
@@ -221,6 +221,93 @@ describe("RehearsalStage -- Mirror flip", () => {
       />
     );
     expect(container.querySelector(".rehearsalStage")?.className).toContain("rehearsalStage--mirrored");
+  });
+});
+
+describe("RehearsalStage -- Connecting/Ready", () => {
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
+  it("shows a Connecting banner while listening but not yet ready, with the elapsed seconds", () => {
+    const { container } = render(
+      <RehearsalStage
+        sentences={sentences}
+        tokens={tokens}
+        state={state()}
+        visualMode="sentence"
+        listening
+        ready={false}
+        connectingSeconds={3}
+      />
+    );
+    const banner = container.querySelector(".rehearsalStage__connecting");
+    expect(banner).toBeTruthy();
+    expect(banner?.textContent).toContain("Connecting");
+    expect(banner?.textContent).toContain("3s");
+    expect(container.querySelector(".rehearsalStage__readyFlash")).toBeFalsy();
+  });
+
+  it("never shows Connecting when not listening at all (nothing to connect to yet)", () => {
+    const { container } = render(
+      <RehearsalStage sentences={sentences} tokens={tokens} state={state()} visualMode="sentence" listening={false} ready={false} />
+    );
+    expect(container.querySelector(".rehearsalStage__connecting")).toBeFalsy();
+  });
+
+  it("suppresses the 'holding position' freeze banner until actually ready -- connecting isn't the same as frozen", () => {
+    const { container } = render(
+      <RehearsalStage
+        sentences={sentences}
+        tokens={tokens}
+        state={state({ frozen: true })}
+        visualMode="sentence"
+        listening
+        ready={false}
+      />
+    );
+    expect(container.querySelector(".rehearsalStage__freeze")).toBeFalsy();
+    expect(container.querySelector(".rehearsalStage__connecting")).toBeTruthy();
+  });
+
+  it("flashes an unmistakable Ready confirmation the instant ready flips true, then dismisses itself", () => {
+    vi.useFakeTimers();
+    const { container, rerender } = render(
+      <RehearsalStage sentences={sentences} tokens={tokens} state={state()} visualMode="sentence" listening ready={false} />
+    );
+    expect(container.querySelector(".rehearsalStage__readyFlash")).toBeFalsy();
+
+    act(() => {
+      rerender(
+        <RehearsalStage sentences={sentences} tokens={tokens} state={state()} visualMode="sentence" listening ready />
+      );
+    });
+    expect(container.querySelector(".rehearsalStage__connecting")).toBeFalsy();
+    expect(container.querySelector(".rehearsalStage__readyFlash")).toBeTruthy();
+    expect(container.querySelector(".rehearsalStage__readyFlash")?.textContent).toContain("Ready");
+
+    act(() => {
+      vi.advanceTimersByTime(2100);
+    });
+    expect(container.querySelector(".rehearsalStage__readyFlash")).toBeFalsy();
+  });
+
+  it("does not flash Ready again on every re-render while already ready -- only on the false-to-true transition", () => {
+    vi.useFakeTimers();
+    const { container, rerender } = render(
+      <RehearsalStage sentences={sentences} tokens={tokens} state={state()} visualMode="sentence" listening ready />
+    );
+    act(() => {
+      vi.advanceTimersByTime(2100);
+    });
+    expect(container.querySelector(".rehearsalStage__readyFlash")).toBeFalsy();
+
+    act(() => {
+      rerender(
+        <RehearsalStage sentences={sentences} tokens={tokens} state={state({ sentenceIndex: 1 })} visualMode="sentence" listening ready />
+      );
+    });
+    expect(container.querySelector(".rehearsalStage__readyFlash")).toBeFalsy();
   });
 });
 

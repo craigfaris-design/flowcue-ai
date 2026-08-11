@@ -197,7 +197,7 @@ export function ScriptWorkspace({
   const [lastHeard, setLastHeard] = useState("");
   const lastHeardWordsRef = useRef<string[]>([]);
 
-  const { listening, supported, error: recognitionError, usingFallback, start, stop } = useLiveRecognition({
+  const { listening, supported, error: recognitionError, usingFallback, ready, start, stop } = useLiveRecognition({
     language: speechLanguage,
     onWords: (words) => {
       words.forEach((w) => {
@@ -220,6 +220,13 @@ export function ScriptWorkspace({
     setSyncState(engine.getState());
   }, [engine]);
 
+  // Elapsed time since Start was pressed, while still connecting -- counts
+  // up (not a fake countdown to a guessed number, since actual connect time
+  // varies) so a nervous presenter has something concrete to look at
+  // instead of a static "Connecting…" that might as well be frozen.
+  const [connectingSeconds, setConnectingSeconds] = useState(0);
+  const connectStartRef = useRef<number | null>(null);
+
   useEffect(() => {
     // `frozen` is a function of wall-clock time (now - lastConfidentMatchAt),
     // but state only otherwise updates inside onWords. Without this tick, a
@@ -231,6 +238,9 @@ export function ScriptWorkspace({
     if (!listening) return;
     const id = setInterval(() => {
       updateSyncState(engine.getState());
+      if (connectStartRef.current !== null) {
+        setConnectingSeconds(Math.floor((Date.now() - connectStartRef.current) / 1000));
+      }
       if (practiceMode) {
         const { startedAt, wordCount, fillerCount } = sessionRef.current;
         const durationSec = (Date.now() - startedAt) / 1000;
@@ -240,6 +250,15 @@ export function ScriptWorkspace({
     }, 300);
     return () => clearInterval(id);
   }, [listening, engine, practiceMode]);
+
+  useEffect(() => {
+    // Stop ticking the moment we're actually ready -- connectStartRef being
+    // non-null is exactly what gates the tick above, so clearing it here
+    // (rather than in the interval itself) is the single place that turns
+    // the counter off regardless of which path got here (ready, stopped, or
+    // an error mid-connect).
+    if (ready || !listening) connectStartRef.current = null;
+  }, [ready, listening]);
 
   useEffect(() => {
     // Keep the screen from dimming/locking for as long as this rehearsal
@@ -302,6 +321,8 @@ export function ScriptWorkspace({
     setLiveNudge(null);
     lastHeardWordsRef.current = [];
     setLastHeard("");
+    connectStartRef.current = Date.now();
+    setConnectingSeconds(0);
     // Whatever was scrolled into view while reviewing the script/settings
     // (on mobile, the Start button itself sits below the script) shouldn't
     // be where the presenter lands the moment they start speaking -- jump
@@ -515,9 +536,9 @@ export function ScriptWorkspace({
                       </button>
                     </div>
                   )}
-                  <div className={"panelCard__status" + (listening ? " panelCard__status--live" : "")}>
-                    {listening ? "● Listening" : "Stopped"}
-                    {listening && usingFallback && " (browser fallback)"}
+                  <div className={"panelCard__status" + (listening && ready ? " panelCard__status--live" : "")}>
+                    {listening ? (ready ? "● Listening" : `Connecting${connectingSeconds > 0 ? ` (${connectingSeconds}s)` : ""}…`) : "Stopped"}
+                    {listening && ready && usingFallback && " (browser fallback)"}
                   </div>
                   {listening && (
                     <div className="panelCard__lastHeard" aria-live="polite">
@@ -603,6 +624,8 @@ export function ScriptWorkspace({
             state={showOfflineReading ? pacedSyncState : syncState}
             visualMode={visualMode}
             listening={showOfflineReading ? true : listening}
+            ready={showOfflineReading ? true : ready}
+            connectingSeconds={connectingSeconds}
             mirrorFlip={mirrorFlip}
             syllabifyLongWords={syllabifyLongWords}
             onSentenceTap={showOfflineReading ? handleOfflineJump : undefined}

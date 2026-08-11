@@ -95,6 +95,17 @@ function withLanguage(url: string, language: string | undefined): string {
 
 export function useAssemblyAIRecognition({ onWords, relayUrl, language }: UseAssemblyAIRecognitionOptions) {
   const [listening, setListening] = useState(false);
+  // True only once AssemblyAI's own upstream session has actually opened
+  // (the relay's "ready" message) -- distinct from `listening`, which flips
+  // true as soon as mic capture starts, before the relay/AssemblyAI
+  // handshake finishes. That gap is a few hundred ms normally but can be
+  // much longer on a cold Render instance -- reported directly as a real
+  // problem for a nervous presenter in front of a crowd who starts talking
+  // the instant they see "Listening" with no way to tell whether anything
+  // is actually being heard yet. Nothing spoken is lost either way (see
+  // pendingChunks below), but the presenter has no way to *know* that
+  // without this signal.
+  const [ready, setReady] = useState(false);
   // Availability doesn't change at runtime, so this doesn't need to be
   // state -- just computed once per hook call. AudioWorklet is the real
   // gate here (Safari < 14.1 and a handful of older browsers lack it);
@@ -144,6 +155,7 @@ export function useAssemblyAIRecognition({ onWords, relayUrl, language }: UseAss
   const start = useCallback(async () => {
     if (!supported) return;
     setError(null);
+    setReady(false);
     const myToken = ++startTokenRef.current;
 
     let stream: MediaStream;
@@ -172,6 +184,7 @@ export function useAssemblyAIRecognition({ onWords, relayUrl, language }: UseAss
       setError(message);
       listeningRef.current = false;
       setListening(false);
+      setReady(false);
       cleanup();
     };
 
@@ -260,12 +273,14 @@ export function useAssemblyAIRecognition({ onWords, relayUrl, language }: UseAss
         setError(msg.message ?? "Speech recognition service error.");
         listeningRef.current = false;
         setListening(false);
+        setReady(false);
         cleanup();
         return;
       }
 
       if (msg.type === "ready") {
         relayReady = true;
+        setReady(true);
         for (const buf of pendingChunks) {
           if (ws.readyState === WebSocket.OPEN) ws.send(buf);
         }
@@ -288,6 +303,7 @@ export function useAssemblyAIRecognition({ onWords, relayUrl, language }: UseAss
       setError("Could not reach the speech recognition relay.");
       listeningRef.current = false;
       setListening(false);
+      setReady(false);
       cleanup();
     };
 
@@ -296,6 +312,7 @@ export function useAssemblyAIRecognition({ onWords, relayUrl, language }: UseAss
         setError("Lost connection to the speech recognition relay -- press Start again to resume live cueing.");
         listeningRef.current = false;
         setListening(false);
+        setReady(false);
       }
     };
   }, [supported, relayUrl, language, cleanup]);
@@ -304,8 +321,9 @@ export function useAssemblyAIRecognition({ onWords, relayUrl, language }: UseAss
     startTokenRef.current++;
     listeningRef.current = false;
     setListening(false);
+    setReady(false);
     cleanup();
   }, [cleanup]);
 
-  return { listening, supported, error, start, stop };
+  return { listening, supported, error, ready, start, stop };
 }

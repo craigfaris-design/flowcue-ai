@@ -80,6 +80,13 @@ export function useLiveRecognition({ onWords, language }: UseLiveRecognitionOpti
     // only surface an error from whichever provider is currently active.
     error: active.error,
     usingFallback,
+    // The Web Speech API has no discrete "connection established" handshake
+    // the way AssemblyAI's relay does -- it's a synchronous browser call, so
+    // `listening` itself is already the closest honest signal there. Only
+    // AssemblyAI has a real gap between "mic capturing" and "actually being
+    // heard" worth surfacing separately (see useAssemblyAIRecognition's
+    // `ready` for why that gap matters to a presenter).
+    ready: usingFallback ? webSpeech.listening : assemblyAi.ready,
     start,
     stop,
   };

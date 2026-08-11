@@ -117,7 +117,46 @@ describe("useAssemblyAIRecognition", () => {
   it("becomes listening once the relay signals ready", async () => {
     const result = await startAndConnect(() => {});
     expect(result.current.listening).toBe(true);
+    expect(result.current.ready).toBe(true);
     expect(result.current.error).toBeNull();
+  });
+
+  it("reports listening but not ready during the mic-capture-to-relay-handshake gap", async () => {
+    // The gap this exists to surface: mic capture (and `listening`) starts
+    // the instant permission is granted, but the presenter isn't actually
+    // being heard by AssemblyAI until the relay's "ready" message arrives
+    // -- reported directly as confusing for a nervous presenter with no way
+    // to tell those two states apart.
+    const { result } = renderHook(() => useAssemblyAIRecognition({ onWords: () => {} }));
+    await act(async () => {
+      await result.current.start();
+    });
+
+    expect(result.current.listening).toBe(true);
+    expect(result.current.ready).toBe(false);
+
+    await act(async () => {
+      lastSocket!.readyState = MockWebSocket.OPEN;
+      lastSocket!.simulateMessage({ type: "ready" });
+    });
+    expect(result.current.ready).toBe(true);
+  });
+
+  it("resets ready to false on stop, error, and connection drop -- never sticky across sessions", async () => {
+    const result = await startAndConnect(() => {});
+    expect(result.current.ready).toBe(true);
+
+    act(() => {
+      result.current.stop();
+    });
+    expect(result.current.ready).toBe(false);
+
+    const result2 = await startAndConnect(() => {});
+    expect(result2.current.ready).toBe(true);
+    act(() => {
+      lastSocket!.onclose?.();
+    });
+    expect(result2.current.ready).toBe(false);
   });
 
   it("starts capturing immediately on mic access, buffering PCM chunks until the relay is ready (no lost speech during handshake)", async () => {

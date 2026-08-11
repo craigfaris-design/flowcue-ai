@@ -50,6 +50,59 @@
   z-index: 5;
 }
 
+/* Distinct from the freeze banner above -- this is "not connected yet,"
+   not "lost tracking mid-session," and needs to read calmly (amber, not
+   alarm-red) since seeing it is completely normal for the first second or
+   two of every session. */
+.rehearsalStage__connecting {
+  position: sticky;
+  top: 0;
+  margin-bottom: 16px;
+  background: rgba(255,177,153,0.14);
+  border: 1px solid rgba(255,177,153,0.4);
+  color: var(--peach);
+  font-size: 14px;
+  font-weight: 600;
+  padding: 10px 14px;
+  border-radius: 8px;
+  z-index: 6;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.rehearsalStage__connectingSpinner {
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  border: 2px solid rgba(255,177,153,0.3);
+  border-top-color: var(--peach);
+  animation: rehearsalStageSpin 0.8s linear infinite;
+  flex-shrink: 0;
+}
+@keyframes rehearsalStageSpin {
+  to { transform: rotate(360deg); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .rehearsalStage__connectingSpinner { animation: none; }
+}
+
+/* The unmistakable "go" signal -- deliberately bigger/bolder than the
+   status line in the side panel, since the presenter's eyes are on this
+   stage (or the crowd), not the panel, right when it matters most. */
+.rehearsalStage__readyFlash {
+  position: sticky;
+  top: 0;
+  margin-bottom: 16px;
+  background: rgba(127,232,196,0.16);
+  border: 1px solid rgba(127,232,196,0.5);
+  color: var(--mint);
+  font-size: 15px;
+  font-weight: 700;
+  padding: 10px 14px;
+  border-radius: 8px;
+  z-index: 6;
+}
+
 .rehearsalStage__text {
   max-width: 780px;
   font-size: 27px;

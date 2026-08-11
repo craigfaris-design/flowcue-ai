@@ -11,6 +11,17 @@ interface RehearsalStageProps {
   state: SyncState;
   visualMode: VisualMode;
   listening: boolean;
+  /** False during the gap between mic capture starting and the cloud STT
+   * connection actually being live (see useAssemblyAIRecognition's `ready`).
+   * Defaults to true so callers with no such handshake at all (Offline
+   * Reading's paced cursor, tests) never need to think about it -- only
+   * live cloud cueing has a real "connecting" phase to show. */
+  ready?: boolean;
+  /** Seconds elapsed since Start was pressed, while still connecting --
+   * ticks up rather than counting down to a guessed number, since actual
+   * connect time varies (normally ~1-2s, much longer if the backend had
+   * spun down from inactivity). */
+  connectingSeconds?: number;
   /** For real teleprompter hardware (beam-splitter glass) -- the display
    * must show mirrored text so it reads correctly once reflected. */
   mirrorFlip?: boolean;
@@ -39,6 +50,8 @@ export function RehearsalStage({
   state,
   visualMode,
   listening,
+  ready = true,
+  connectingSeconds = 0,
   mirrorFlip = false,
   syllabifyLongWords = false,
   onSentenceTap,
@@ -60,9 +73,39 @@ export function RehearsalStage({
     }
   }, [state.sentenceIndex]);
 
+  // A brief, self-dismissing confirmation the instant `ready` flips true --
+  // reported directly: a nervous presenter in front of a crowd needs an
+  // unmistakable, un-missable "go" signal, not just a status line that
+  // quietly stops saying "Connecting." A vibration too, since eyes are
+  // often on the audience, not the phone, right at that moment.
+  const [showReadyFlash, setShowReadyFlash] = useState(false);
+  const wasReadyRef = useRef(false);
+  useEffect(() => {
+    if (ready && !wasReadyRef.current) {
+      wasReadyRef.current = true;
+      setShowReadyFlash(true);
+      if (typeof navigator !== "undefined" && navigator.vibrate) navigator.vibrate(200);
+      const id = setTimeout(() => setShowReadyFlash(false), 2000);
+      return () => clearTimeout(id);
+    }
+    if (!ready) wasReadyRef.current = false;
+  }, [ready]);
+
   return (
     <div className={"rehearsalStage" + (mirrorFlip ? " rehearsalStage--mirrored" : "")} ref={stageRef}>
-      {state.frozen && listening && (
+      {listening && !ready && (
+        <div className="rehearsalStage__connecting" role="status">
+          <span className="rehearsalStage__connectingSpinner" aria-hidden="true" />
+          Connecting{connectingSeconds > 0 ? ` (${connectingSeconds}s)` : ""} — wait for “Ready” before you
+          start speaking
+        </div>
+      )}
+      {listening && ready && showReadyFlash && (
+        <div className="rehearsalStage__readyFlash" role="status">
+          ✓ Ready — start speaking
+        </div>
+      )}
+      {ready && state.frozen && listening && (
         <div className="rehearsalStage__freeze" role="status">
           {state.cursorTokenIndex === -1
             ? // No word has matched yet at all -- this is the normal state
