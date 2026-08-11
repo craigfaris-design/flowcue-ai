@@ -392,6 +392,32 @@ export class SyncEngine {
 
     const score = best.matches / n;
     if (score < threshold) return { score: 0, lastTokenIdx: startIdx + n - 1 };
+
+    // A *substantial* backward jump -- further back than the near-window
+    // search's own small backtrack tolerance (nearWindowBefore) already
+    // reaches, i.e. only findable via the full-script fallback -- must be
+    // an unambiguous, deliberate re-read of that exact earlier text, not a
+    // coincidental partial match. Reported directly from live use: a
+    // presenter veering off-script mid-speech (a joke, chatting with the
+    // crowd, a tangent with nothing to do with the script) would
+    // occasionally clear the normal threshold against some earlier
+    // paragraph purely by chance -- a short run of common words lining up
+    // -- which was enough to yank the display back to a paragraph they'd
+    // already delivered, right as they returned to reading. Requiring
+    // every one of the most recent words to match (not just the usual
+    // 2-of-3) keeps a genuine backtrack -- re-reading a fumbled line
+    // verbatim, see "detects a backtrack to an earlier sentence" --
+    // working exactly as before, since word-for-word repeated text clears
+    // this trivially, while a stray coincidental match essentially never
+    // does. Deliberately NOT applied to small in-window backward moves
+    // (a stumble/self-correction a word or two back, still governed by the
+    // normal 2-of-3 rule as before) -- those are ordinary realignment
+    // wobble, not "jumping back to a previous paragraph."
+    const isSubstantialBackwardJump = startIdx < this.cursor - this.opts.nearWindowBefore;
+    if (isSubstantialBackwardJump && best.recentMatches < recentCount) {
+      return { score: 0, lastTokenIdx: startIdx + n - 1 };
+    }
+
     return { score, lastTokenIdx: best.lastTokenIdx };
   }
 

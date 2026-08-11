@@ -48,6 +48,56 @@ describe("SyncEngine", () => {
     expect(engine.getState().sentenceIndex).toBe(2);
   });
 
+  it("does not regress to a previous paragraph after off-script ad-libbing (jokes/crowd banter unrelated to the speech)", () => {
+    // The exact scenario reported from live use: the presenter reads
+    // through a couple of paragraphs, veers off to talk to the crowd about
+    // something with nothing to do with the script, then resumes reading
+    // where they left off. The old full-script fallback search (triggered
+    // because ad-lib content matches nothing near the cursor) had no floor
+    // on how far backward it could jump, and a short run of common words in
+    // the ad-lib could coincidentally clear the confidence threshold
+    // against an earlier paragraph -- visibly "undoing" a paragraph the
+    // presenter had already delivered right as they returned to the script.
+    const engine = new SyncEngine(script);
+    speak(engine, "Good evening everyone and thank you for being here tonight".split(" "));
+    speak(engine, "When Sarah first told me she was getting married I honestly did not believe her".split(" "));
+    const beforeAdLib = engine.getState();
+    expect(beforeAdLib.sentenceIndex).toBe(2);
+
+    // Off-script content sharing no real phrasing with the script.
+    speak(
+      engine,
+      "you know this actually reminds me of a camping trip we took last summer where it rained the entire weekend and nobody had packed a proper tent".split(
+        " "
+      )
+    );
+
+    // Resume the script exactly where they left off.
+    speak(engine, "We have been best friends since the third grade and I have seen her through everything".split(" "));
+
+    const after = engine.getState();
+    expect(after.sentenceIndex).toBeGreaterThanOrEqual(beforeAdLib.sentenceIndex);
+    expect(after.sentenceIndex).toBe(3);
+  });
+
+  it("still allows a genuine backward match if the recognizer briefly free-associates a *word* the script also happens to use later, as long as it's not a strong multi-word match to earlier text", () => {
+    // Guards the actual mechanism the fix above relies on: disqualifying a
+    // backward candidate specifically when fewer than all of the most
+    // recent words match, not by distance or any other proxy. A single
+    // coincidentally-matching common word mixed into otherwise-unrelated
+    // speech must not be enough on its own.
+    const engine = new SyncEngine(script);
+    speak(engine, "We have been best friends since the third grade and I have seen her through everything".split(" "));
+    const before = engine.getState();
+    expect(before.sentenceIndex).toBe(3);
+
+    // "married" appears earlier (sentence 1), but surrounded by unrelated
+    // words -- only one of the recent words coincidentally overlaps.
+    speak(engine, "anyway I was reading about how beavers build their dams last night fascinating stuff".split(" "));
+    const after = engine.getState();
+    expect(after.sentenceIndex).toBeGreaterThanOrEqual(before.sentenceIndex);
+  });
+
   it("detects a backtrack to an earlier sentence", () => {
     const engine = new SyncEngine(script);
     speak(engine, "We have been best friends since the third grade and I have seen her through everything".split(" "));

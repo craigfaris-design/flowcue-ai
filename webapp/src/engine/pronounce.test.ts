@@ -251,6 +251,24 @@ describe("pronounce", () => {
       expect(syllabifyForDisplay("cat")).toBe("cat");
     });
 
+    it("leaves ordinary everyday words unsplit even though they land at 3 syllables -- only genuinely long/complicated words should split", () => {
+      // Reported directly: syllable breaks were showing up on completely
+      // normal words a presenter reads every day, not just the rare
+      // "com·mu·ni·ca·tion"-class term this feature is meant for. All of
+      // these are common 3-syllable words under the same vowel-run
+      // heuristic splitSyllables uses -- a threshold of 3 caught nearly
+      // every multi-syllable word in ordinary speech.
+      for (const word of ["yesterday", "wonderful", "beautiful", "together", "remember", "important"]) {
+        expect(syllabifyForDisplay(word)).toBe(word);
+      }
+    });
+
+    it("still splits genuinely long/complicated words", () => {
+      expect(syllabifyForDisplay("communication")).toContain("·");
+      expect(syllabifyForDisplay("extraordinary")).toContain("·");
+      expect(syllabifyForDisplay("responsibility")).toContain("·");
+    });
+
     it("preserves original casing, not the lowercase form splitSyllables works with internally", () => {
       const result = syllabifyForDisplay("Communication");
       expect(result.startsWith("C")).toBe(true);

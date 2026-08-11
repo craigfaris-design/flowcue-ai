@@ -125,7 +125,14 @@ function guessStressIndex(syllableCount: number): number {
 // as "long/complicated" for the reading-view syllable-break setting -- short
 // words never need the help, and splitSyllables() already declines to split
 // anything <=3 letters at all.
-const LONG_WORD_SYLLABLE_THRESHOLD = 3;
+//
+// Was 3, raised to 4: reported directly as splitting ordinary everyday
+// words, not just genuinely long/complicated ones. Plenty of common words
+// land at exactly 3 syllables under this same vowel-run heuristic --
+// "yesterday," "wonderful," "beautiful," "together" all do -- so a
+// threshold of 3 caught nearly every multi-syllable word in normal speech,
+// not the rarer "com·mu·ni·ca·tion"-class word this feature exists for.
+const LONG_WORD_SYLLABLE_THRESHOLD = 4;
 
 // Inserts a middle-dot between syllables for display in the actual
 // rehearsal reading text (e.g. "com·mu·ni·ca·tion") -- distinct from
