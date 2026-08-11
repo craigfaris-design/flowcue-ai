@@ -144,6 +144,10 @@ describe("useLiveRecognition", () => {
     await act(async () => {
       lastSocket!.readyState = MockWebSocket.OPEN;
       lastSocket!.simulateMessage({ type: "ready" });
+      // AssemblyAI's own confirmation that its session has actually begun --
+      // the relay's "ready" alone (above) isn't sufficient, see
+      // useAssemblyAIRecognition's `ready` state.
+      lastSocket!.simulateMessage({ type: "Begin", id: "test-session", expires_at: 0 });
     });
     expect(result.current.ready).toBe(true);
 

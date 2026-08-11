@@ -244,7 +244,8 @@ describe("RehearsalStage -- Connecting/Ready", () => {
     const banner = container.querySelector(".rehearsalStage__connecting");
     expect(banner).toBeTruthy();
     expect(banner?.textContent).toContain("Connecting");
-    expect(banner?.textContent).toContain("3s");
+    // MM:SS digital-timer format, not a bare "3s".
+    expect(banner?.textContent).toContain("00:03");
     expect(container.querySelector(".rehearsalStage__readyFlash")).toBeFalsy();
   });
 

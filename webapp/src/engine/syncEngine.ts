@@ -255,6 +255,21 @@ export class SyncEngine {
   private unmatchedStreakStartAt: number | null = null;
   private lastMatchScore = 0;
   private spokenBuffer: string[] = [];
+  // The highest token index the cursor has ever reached -- a floor that a
+  // match, however strong, is never allowed to place the cursor
+  // meaningfully below again. Reported directly from live use, twice: once
+  // for the case this was originally guarded against (off-script ad-lib
+  // content coincidentally matching an earlier paragraph), and again for a
+  // case that guard deliberately still allowed -- a strong, genuine match
+  // against earlier text (e.g. reading the opening line again after
+  // finishing the whole speech) still yanked the display backward. Both
+  // reports landed on the same real requirement: once a paragraph has been
+  // delivered, the display must never move behind it again on its own, no
+  // matter how confident the match looks. A presenter who wants to
+  // deliberately revisit an earlier line has Reset or (in Offline Reading)
+  // the tap-to-jump gesture for that -- this is specifically about what
+  // automatic speech-matching is allowed to do by itself.
+  private highWaterMark = -1;
   // Last token's globalIndex per sentence, so getState() can tell "the
   // cursor just landed on the final word of its sentence" in O(1).
   private sentenceEndIndex: number[];
@@ -392,32 +407,6 @@ export class SyncEngine {
 
     const score = best.matches / n;
     if (score < threshold) return { score: 0, lastTokenIdx: startIdx + n - 1 };
-
-    // A *substantial* backward jump -- further back than the near-window
-    // search's own small backtrack tolerance (nearWindowBefore) already
-    // reaches, i.e. only findable via the full-script fallback -- must be
-    // an unambiguous, deliberate re-read of that exact earlier text, not a
-    // coincidental partial match. Reported directly from live use: a
-    // presenter veering off-script mid-speech (a joke, chatting with the
-    // crowd, a tangent with nothing to do with the script) would
-    // occasionally clear the normal threshold against some earlier
-    // paragraph purely by chance -- a short run of common words lining up
-    // -- which was enough to yank the display back to a paragraph they'd
-    // already delivered, right as they returned to reading. Requiring
-    // every one of the most recent words to match (not just the usual
-    // 2-of-3) keeps a genuine backtrack -- re-reading a fumbled line
-    // verbatim, see "detects a backtrack to an earlier sentence" --
-    // working exactly as before, since word-for-word repeated text clears
-    // this trivially, while a stray coincidental match essentially never
-    // does. Deliberately NOT applied to small in-window backward moves
-    // (a stumble/self-correction a word or two back, still governed by the
-    // normal 2-of-3 rule as before) -- those are ordinary realignment
-    // wobble, not "jumping back to a previous paragraph."
-    const isSubstantialBackwardJump = startIdx < this.cursor - this.opts.nearWindowBefore;
-    if (isSubstantialBackwardJump && best.recentMatches < recentCount) {
-      return { score: 0, lastTokenIdx: startIdx + n - 1 };
-    }
-
     return { score, lastTokenIdx: best.lastTokenIdx };
   }
 
@@ -526,6 +515,14 @@ export class SyncEngine {
       if (full.score > best.score) best = full;
     }
 
+    // Absolute floor: never let a match -- however strong -- place the
+    // cursor meaningfully behind the highest point already reached. See
+    // highWaterMark's own comment for why this has to be unconditional
+    // rather than scored/relaxed for a "confident enough" match.
+    if (best.score > 0 && best.lastTokenIdx < this.highWaterMark - this.opts.nearWindowBefore) {
+      best = { idx: -1, score: 0, lastTokenIdx: -1 };
+    }
+
     if (best.score > 0 && best.idx >= 0) {
       // Only log the *transition* back into a match, not every successful
       // word -- this is meant to bracket a real "Holding position" report
@@ -546,6 +543,7 @@ export class SyncEngine {
       // (and everything getState() derives from it) always stays a valid
       // index into this.tokens.
       this.cursor = Math.min(best.lastTokenIdx, this.tokens.length - 1);
+      this.highWaterMark = Math.max(this.highWaterMark, this.cursor);
       this.lastMatchScore = best.score;
       this.unmatchedStreakStartAt = null;
     } else if (this.unmatchedStreakStartAt === null) {
@@ -616,6 +614,7 @@ export class SyncEngine {
 
   reset(): void {
     this.cursor = -1;
+    this.highWaterMark = -1;
     this.spokenBuffer = [];
     this.lastMatchScore = 0;
     this.unmatchedStreakStartAt = null;

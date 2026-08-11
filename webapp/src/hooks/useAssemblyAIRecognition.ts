@@ -178,6 +178,13 @@ export function useAssemblyAIRecognition({ onWords, relayUrl, language }: UseAss
     }
 
     streamRef.current = stream;
+    // Set as soon as we're committed to this session (mic secured), not
+    // after the audio worklet finishes loading below -- that setup is
+    // normally near-instant, but the Connecting banner (gated on
+    // `listening && !ready`) should start counting from the true beginning
+    // of the wait, not from whenever local setup happens to finish.
+    listeningRef.current = true;
+    setListening(true);
 
     const die = (message: string) => {
       if (!listeningRef.current) return;
@@ -199,42 +206,16 @@ export function useAssemblyAIRecognition({ onWords, relayUrl, language }: UseAss
     let relayReady = false;
     const pendingChunks: ArrayBuffer[] = [];
 
-    const audioContext = new AudioContext({ sampleRate: SAMPLE_RATE });
-    audioContextRef.current = audioContext;
-    try {
-      await audioContext.audioWorklet.addModule("/pcm-worklet.js");
-    } catch {
-      die("Could not start audio processing -- press Start again to retry.");
-      return;
-    }
-
-    if (startTokenRef.current !== myToken) {
-      // Superseded while the worklet module was loading.
-      audioContext.close().catch(() => {});
-      stream.getTracks().forEach((t) => t.stop());
-      return;
-    }
-
-    const sourceNode = audioContext.createMediaStreamSource(stream);
-    sourceNodeRef.current = sourceNode;
-    const workletNode = new AudioWorkletNode(audioContext, "pcm-worklet");
-    workletNodeRef.current = workletNode;
-    // Deliberately not connected to audioContext.destination -- this is
-    // capture-only, playing the mic back out would just be feedback.
-    sourceNode.connect(workletNode);
-
-    workletNode.port.onmessage = (e) => {
-      const buf = e.data as ArrayBuffer;
-      if (relayReady && wsRef.current?.readyState === WebSocket.OPEN) {
-        wsRef.current.send(buf);
-      } else {
-        pendingChunks.push(buf);
-      }
-    };
-
-    listeningRef.current = true;
-    setListening(true);
-
+    // Opened immediately, in parallel with the audio worklet setup below --
+    // this connection (through our relay, on to AssemblyAI) is normally by
+    // far the slower of the two (a real network round-trip vs. a
+    // same-origin, service-worker-cached module fetch+compile), especially
+    // if the relay's backend had spun down from inactivity. Starting it
+    // this early, instead of only after the worklet was ready, directly
+    // shortens the "Connecting" gap reported as too long in production --
+    // nothing about audio capture depends on this existing yet, captured
+    // chunks queue in pendingChunks regardless (see workletNode.port.onmessage
+    // below) until both this is OPEN and AssemblyAI's own session has begun.
     const ws = new WebSocket(withLanguage(relayUrl ?? defaultRelayUrl(), language));
     ws.binaryType = "arraybuffer";
     wsRef.current = ws;
@@ -280,11 +261,25 @@ export function useAssemblyAIRecognition({ onWords, relayUrl, language }: UseAss
 
       if (msg.type === "ready") {
         relayReady = true;
-        setReady(true);
         for (const buf of pendingChunks) {
           if (ws.readyState === WebSocket.OPEN) ws.send(buf);
         }
         pendingChunks.length = 0;
+        return;
+      }
+
+      // "ready" (above) only confirms *our own relay's* pipe to AssemblyAI
+      // opened -- not that AssemblyAI's transcription session has actually
+      // begun server-side. "Begin" is AssemblyAI's own confirmation of
+      // that (confirmed via a direct connection test: Begin consistently
+      // arrives a beat after the socket opens, before any real Turn data).
+      // Audio is still safe to send as soon as "ready" fires (AssemblyAI
+      // buffers it), but telling the *presenter* it's safe to start
+      // talking on the earlier signal was reported directly as premature
+      // -- the Ready confirmation would show, and there'd still be a
+      // further wait before speech actually started registering.
+      if (msg.type === "Begin") {
+        setReady(true);
         return;
       }
 
@@ -313,6 +308,43 @@ export function useAssemblyAIRecognition({ onWords, relayUrl, language }: UseAss
         listeningRef.current = false;
         setListening(false);
         setReady(false);
+      }
+    };
+
+    // Runs concurrently with the WebSocket connecting above, not after it
+    // -- see that block's comment. A same-origin, service-worker-cached
+    // module fetch+compile is normally fast regardless, but there's no
+    // reason to make it a sequential dependency of the network round-trip.
+    const audioContext = new AudioContext({ sampleRate: SAMPLE_RATE });
+    audioContextRef.current = audioContext;
+    try {
+      await audioContext.audioWorklet.addModule("/pcm-worklet.js");
+    } catch {
+      die("Could not start audio processing -- press Start again to retry.");
+      return;
+    }
+
+    if (startTokenRef.current !== myToken) {
+      // Superseded while the worklet module was loading.
+      audioContext.close().catch(() => {});
+      stream.getTracks().forEach((t) => t.stop());
+      return;
+    }
+
+    const sourceNode = audioContext.createMediaStreamSource(stream);
+    sourceNodeRef.current = sourceNode;
+    const workletNode = new AudioWorkletNode(audioContext, "pcm-worklet");
+    workletNodeRef.current = workletNode;
+    // Deliberately not connected to audioContext.destination -- this is
+    // capture-only, playing the mic back out would just be feedback.
+    sourceNode.connect(workletNode);
+
+    workletNode.port.onmessage = (e) => {
+      const buf = e.data as ArrayBuffer;
+      if (relayReady && wsRef.current?.readyState === WebSocket.OPEN) {
+        wsRef.current.send(buf);
+      } else {
+        pendingChunks.push(buf);
       }
     };
   }, [supported, relayUrl, language, cleanup]);

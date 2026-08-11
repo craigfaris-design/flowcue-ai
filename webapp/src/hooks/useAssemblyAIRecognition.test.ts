@@ -100,6 +100,12 @@ async function startAndConnect(onWords: (w: string[]) => void) {
   await act(async () => {
     lastSocket!.readyState = MockWebSocket.OPEN;
     lastSocket!.simulateMessage({ type: "ready" });
+    // Real AssemblyAI behavior: a "Begin" message follows once its own
+    // session has actually started server-side -- see useAssemblyAIRecognition's
+    // `ready` state, which now waits for this rather than just the relay's
+    // own "ready" (confirmed via a direct connection test against the live
+    // API: Begin consistently arrives a beat after the socket opens).
+    lastSocket!.simulateMessage({ type: "Begin", id: "test-session", expires_at: 0 });
   });
   return result;
 }
@@ -124,9 +130,9 @@ describe("useAssemblyAIRecognition", () => {
   it("reports listening but not ready during the mic-capture-to-relay-handshake gap", async () => {
     // The gap this exists to surface: mic capture (and `listening`) starts
     // the instant permission is granted, but the presenter isn't actually
-    // being heard by AssemblyAI until the relay's "ready" message arrives
-    // -- reported directly as confusing for a nervous presenter with no way
-    // to tell those two states apart.
+    // being heard by AssemblyAI until AssemblyAI's own session has begun --
+    // reported directly as confusing for a nervous presenter with no way
+    // to tell those states apart.
     const { result } = renderHook(() => useAssemblyAIRecognition({ onWords: () => {} }));
     await act(async () => {
       await result.current.start();
@@ -135,9 +141,18 @@ describe("useAssemblyAIRecognition", () => {
     expect(result.current.listening).toBe(true);
     expect(result.current.ready).toBe(false);
 
+    // The relay's own "ready" (its pipe to AssemblyAI opened) is NOT
+    // sufficient on its own -- reported directly as still premature, since
+    // AssemblyAI's session hadn't actually started yet at that point.
     await act(async () => {
       lastSocket!.readyState = MockWebSocket.OPEN;
       lastSocket!.simulateMessage({ type: "ready" });
+    });
+    expect(result.current.ready).toBe(false);
+
+    // Only AssemblyAI's own "Begin" confirmation flips it.
+    await act(async () => {
+      lastSocket!.simulateMessage({ type: "Begin", id: "test-session", expires_at: 0 });
     });
     expect(result.current.ready).toBe(true);
   });

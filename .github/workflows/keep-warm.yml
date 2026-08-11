@@ -1,0 +1,22 @@
+name: Keep backend warm
+
+# Render's free tier spins the backend down after ~15 minutes with no
+# incoming requests, and the next request then pays a ~50-second cold-start
+# penalty -- reported directly as part of a much-too-long "Connecting" wait
+# before live cueing could start. Pinging the existing /health endpoint
+# well inside that 15-minute window keeps it warm continuously, at no cost
+# (GitHub Actions' scheduled workflows are free for a public/personal
+# project at this frequency). Not a substitute for Render's paid tier if
+# usage ever needs more than free-tier resources generally -- just removes
+# the cold-start penalty specifically, for free, in the meantime.
+on:
+  schedule:
+    - cron: "*/10 * * * *"
+  workflow_dispatch: {}
+
+jobs:
+  ping:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Ping backend health endpoint
+        run: curl -fsS --max-time 55 https://flowcue-backend.onrender.com/health

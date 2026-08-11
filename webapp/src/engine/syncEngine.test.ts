@@ -98,12 +98,48 @@ describe("SyncEngine", () => {
     expect(after.sentenceIndex).toBeGreaterThanOrEqual(before.sentenceIndex);
   });
 
-  it("detects a backtrack to an earlier sentence", () => {
+  it("never automatically regresses to an earlier sentence, even for a strong/exact repeat of that text", () => {
+    // Was "detects a backtrack to an earlier sentence" -- intentionally
+    // changed. Reported directly, twice, from live use: once for a
+    // coincidental match during off-script ad-libbing (see the test
+    // above), and again for exactly the case this used to test for on
+    // purpose -- deliberately re-reading an earlier line word-for-word
+    // (e.g. reading the opening again after finishing the whole speech)
+    // still yanked the display backward, ruining the flow just the same.
+    // Both reports land on the same real requirement: once a paragraph has
+    // been delivered, automatic speech-matching must never move the
+    // display behind it again, no matter how confident the match looks.
+    // (A presenter who deliberately wants to revisit an earlier line has
+    // Reset, or Offline Reading's tap-to-jump gesture, for that -- this is
+    // specifically about what automatic matching is allowed to do alone.)
     const engine = new SyncEngine(script);
     speak(engine, "We have been best friends since the third grade and I have seen her through everything".split(" "));
     speak(engine, "Tonight is not about the past though".split(" "));
+    const highWaterSentence = engine.getState().sentenceIndex;
+
+    // Word-for-word repeat of sentence 2 -- previously detected as a
+    // deliberate backtrack and followed; must now be refused outright.
     speak(engine, "We have been best friends since the third grade".split(" "));
-    expect(engine.getState().sentenceIndex).toBe(2);
+    expect(engine.getState().sentenceIndex).toBe(highWaterSentence);
+  });
+
+  it("does not regress even after finishing the whole script and then reading the opening line again", () => {
+    // The exact manual test that surfaced this: read all the way through,
+    // then try the first paragraph again -- must hold at the end, not jump
+    // back to the beginning.
+    const engine = new SyncEngine(script);
+    speak(
+      engine,
+      "Good evening everyone and thank you for being here tonight When Sarah first told me she was getting married I honestly did not believe her We have been best friends since the third grade and I have seen her through everything Tonight is not about the past though It is about the future she is building with James So please raise your glass and join me in wishing them a lifetime of happiness"
+        .split(" ")
+    );
+    const highWater = engine.getState();
+    expect(highWater.cursorTokenIndex).toBe(highWater.totalTokens - 1);
+
+    speak(engine, "Good evening everyone and thank you for being here tonight".split(" "));
+    const after = engine.getState();
+    expect(after.cursorTokenIndex).toBe(highWater.cursorTokenIndex);
+    expect(after.sentenceIndex).toBe(highWater.sentenceIndex);
   });
 
   it("tolerates minor misrecognition via fuzzy matching", () => {

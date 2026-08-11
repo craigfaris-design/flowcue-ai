@@ -37,6 +37,15 @@ interface RehearsalStageProps {
   onSentenceTap?: (sentenceIndex: number) => void;
 }
 
+// MM:SS, digital-timer style -- reads as a proper stopwatch/race-timer
+// display rather than a bare "13s," which is the visual upgrade this was
+// asked for directly ("more appealing... like a race car second timer").
+function formatTimer(totalSeconds: number): string {
+  const m = Math.floor(totalSeconds / 60);
+  const s = totalSeconds % 60;
+  return `${String(m).padStart(2, "0")}:${String(s).padStart(2, "0")}`;
+}
+
 function confidenceLevel(state: SyncState): "high" | "medium" | "low" {
   if (state.frozen) return "low";
   if (state.confidence >= 0.8) return "high";
@@ -95,14 +104,19 @@ export function RehearsalStage({
     <div className={"rehearsalStage" + (mirrorFlip ? " rehearsalStage--mirrored" : "")} ref={stageRef}>
       {listening && !ready && (
         <div className="rehearsalStage__connecting" role="status">
-          <span className="rehearsalStage__connectingSpinner" aria-hidden="true" />
-          Connecting{connectingSeconds > 0 ? ` (${connectingSeconds}s)` : ""} — wait for “Ready” before you
-          start speaking
+          <div className="rehearsalStage__connectingTimer" aria-hidden="true">
+            {formatTimer(connectingSeconds)}
+          </div>
+          <div className="rehearsalStage__connectingLabel">
+            <span className="rehearsalStage__connectingSpinner" aria-hidden="true" />
+            Connecting — wait for “Ready” before you start speaking
+          </div>
         </div>
       )}
       {listening && ready && showReadyFlash && (
         <div className="rehearsalStage__readyFlash" role="status">
-          ✓ Ready — start speaking
+          <span className="rehearsalStage__readyFlashGo">GO</span>
+          Ready — start speaking
         </div>
       )}
       {ready && state.frozen && listening && (

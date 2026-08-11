@@ -171,7 +171,15 @@ describe("SyncEngine -- realistic human speech patterns", () => {
     expect(engine.getState().sentenceIndex).toBe(5);
   });
 
-  it("recovers when the speaker restarts from the top after reading well past it", () => {
+  it("does NOT auto-restart from the top on 'let me start that again' -- even an explicit self-correction phrase must not move the display backward on its own", () => {
+    // Was "recovers when the speaker restarts from the top after reading
+    // well past it," which asserted the opposite. Deliberately changed:
+    // reported directly from live use that ANY automatic backward jump --
+    // regardless of how deliberate the speech triggering it seems --
+    // reads as the app "losing" a paragraph the presenter already
+    // delivered. A genuine full restart is a rare, explicit action a
+    // presenter can take themselves (the Reset button), not something
+    // speech-matching should infer and act on alone.
     const engine = new SyncEngine(script);
     speak(
       engine,
@@ -181,10 +189,15 @@ describe("SyncEngine -- realistic human speech patterns", () => {
         "We have been best friends since the third grade and I have seen her through"
       ).split(" ")
     );
-    expect(engine.getState().sentenceIndex).toBe(2);
+    const highWater = engine.getState();
+    expect(highWater.sentenceIndex).toBe(2);
 
     speak(engine, "sorry let me start that again good evening everyone and thank you for being here".split(" "));
-    expect(engine.getState().sentenceIndex).toBe(0);
+    // The real invariant is "never regresses" -- not "stays frozen." Some of
+    // this phrase may still coincidentally nudge the cursor forward a bit;
+    // what must never happen is it moving backward toward sentence 0.
+    expect(engine.getState().sentenceIndex).toBeGreaterThanOrEqual(highWater.sentenceIndex);
+    expect(engine.getState().cursorTokenIndex).toBeGreaterThanOrEqual(highWater.cursorTokenIndex);
   });
 
   it("tolerates numbers, contractions, and punctuation-heavy words", () => {
