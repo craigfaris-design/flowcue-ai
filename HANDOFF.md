@@ -2,6 +2,33 @@
 
 Read this first. It's the fastest way to get productive without re-deriving decisions already made.
 
+## Current status (2026-08-12) — read before touching live cueing
+
+The app is live and working end-to-end, not just a local prototype (most of this doc below
+predates that and is historical context, not current state). Verified-working configuration,
+tagged `v0.2-stable` in git as a rollback point (`git checkout v0.2-stable`) if a future change
+regresses it:
+
+- **Webapp**: `https://flowcue-ai.netlify.app` (Netlify, deployed via `netlify deploy --prod`
+  from `webapp/dist` -- not git-integrated auto-deploy, has to be run manually after a change).
+- **Backend/STT relay**: `https://flowcue-backend.onrender.com` (Render free tier), auto-deploys
+  on push to `master`. Runs AssemblyAI (switched from Deepgram for cost). Kept warm by
+  `.github/workflows/keep-warm.yml`, which pings `/health` every 10 minutes so the free tier
+  never spins down -- **do not remove this workflow** without expecting a ~50s cold-start
+  penalty on the first request after any 15+ minute idle gap to come back.
+- **Android**: signed TWA `.apk`/`.aab` built via Bubblewrap, also hosted at
+  `https://flowcue-ai.netlify.app/flowcue-ai.apk` for direct sideload (interim, pending Play
+  Store submission -- see `PLAY_STORE_LAUNCH_CHECKLIST.md`).
+- **SyncEngine**: absolute no-backward-regression rule (`highWaterMark` in `syncEngine.ts`) --
+  once the display reaches a point in the script, automatic speech-matching can never move it
+  behind that point again, regardless of match confidence. This was iterated on twice against
+  real live-testing reports; don't revert to a "confident match can jump backward" model without
+  re-reading `syncEngine.ts`'s `highWaterMark` comment and re-running `syncEngine.test.ts` +
+  `syncEngine.stress.test.ts`.
+- **Tests**: 265 passing in `webapp/`, 19 in `server/` as of this tag. Run both (`npm test` in
+  each directory) before considering any change to `syncEngine.ts`, `useAssemblyAIRecognition.ts`,
+  or `sttRelay.ts` safe to ship -- these are the highest-blast-radius files in the app.
+
 ## What this is
 
 FlowCue AI is a public-speaking teleprompter whose core differentiator is a real-time
