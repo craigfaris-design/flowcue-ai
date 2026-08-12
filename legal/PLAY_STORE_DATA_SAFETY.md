@@ -13,15 +13,20 @@
 >
 > **2026-08-12 update:** added the "App activity" data type below for the
 > new opt-in, off-by-default anonymous session-metrics feature (Settings →
-> "Help improve FlowCue AI"), built and tested at this same date --
-> `server/src/routes/metrics.ts` (validation), `webapp/src/lib/anonymousMetrics.ts`
-> (client submission), `server/src/migrations/002_anonymous_metrics.sql`
-> (storage, no identifying columns). **Not yet fully live end-to-end**: the
-> route needs a real `DATABASE_URL` configured on the Render backend to
-> actually persist submissions -- confirm that's set (see server/README.md)
-> before treating this feature, or this form's answers about it, as
-> describing production reality. Re-verify this section against the code
-> at submission time regardless, same as everything else in this file.
+> "Help improve FlowCue AI") -- `server/src/routes/metrics.ts` (validation),
+> `webapp/src/lib/anonymousMetrics.ts` (client submission),
+> `server/src/migrations/002_anonymous_metrics.sql` (storage, no
+> identifying columns). **Confirmed fully live end-to-end** same day:
+> `flowcue-metrics-db` (Render free Postgres) provisioned and linked to the
+> backend, migrations applied on boot (`server/src/index.ts`), and verified
+> directly against the production endpoint -- a valid submission returns
+> `204` and is actually persisted, an invalid one (extra field) is rejected
+> `400`. Free-tier Postgres note: this specific database expires 30 days
+> after creation unless upgraded to a paid plan -- if it lapses, submissions
+> go back to being silently discarded (no user-facing breakage, just no
+> data collected) until/unless it's renewed. Re-verify this section against
+> the code and the database's actual status at submission time regardless,
+> same as everything else in this file.
 
 # Play Store Data Safety — draft answers
 

@@ -25,9 +25,23 @@ regresses it:
   real live-testing reports; don't revert to a "confident match can jump backward" model without
   re-reading `syncEngine.ts`'s `highWaterMark` comment and re-running `syncEngine.test.ts` +
   `syncEngine.stress.test.ts`.
-- **Tests**: 265 passing in `webapp/`, 19 in `server/` as of this tag. Run both (`npm test` in
-  each directory) before considering any change to `syncEngine.ts`, `useAssemblyAIRecognition.ts`,
-  or `sttRelay.ts` safe to ship -- these are the highest-blast-radius files in the app.
+- **Tests**: 265 passing in `webapp/`, 19 in `server/` as of this tag (grown since -- rerun before
+  trusting either number). Run both (`npm test` in each directory) before considering any change
+  to `syncEngine.ts`, `useAssemblyAIRecognition.ts`, or `sttRelay.ts` safe to ship -- these are the
+  highest-blast-radius files in the app.
+- **Anonymous metrics** (added same day, after the above): Settings → "Help improve FlowCue AI",
+  off by default. When on, sends a numbers-only session summary (never script content/transcript)
+  to `POST /api/metrics`, stored in `flowcue-metrics-db` (Render free Postgres, linked to the
+  backend via `DATABASE_URL`). Migrations run automatically on every server boot
+  (`server/src/index.ts` → `runMigrations()` in `migrate.ts`) since the free tier has no
+  Shell/One-Off Jobs to run them separately -- **the Dockerfile must keep copying
+  `src/migrations` into `dist/migrations`** (`tsc` doesn't do this on its own; removing that
+  `COPY` line silently breaks migrations again with an `ENOENT` on next deploy, not a build
+  failure, so it won't be caught until runtime). See `legal/PRIVACY_POLICY.md`'s "Optional: help
+  improve FlowCue AI" for the exact data-collection commitment this code has to keep.
+  **`flowcue-metrics-db` is on Render's free Postgres tier, which expires 30 days after
+  creation** (created 2026-08-12) unless upgraded to paid -- if it lapses, submissions just get
+  silently discarded again (no user-facing breakage), but decide before then whether to renew it.
 
 ## What this is
 
