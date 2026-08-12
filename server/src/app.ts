@@ -4,6 +4,7 @@ import type { Pool } from "pg";
 import { scriptsRouter } from "./routes/scripts.js";
 import { sessionsRouter } from "./routes/sessions.js";
 import { settingsRouter } from "./routes/settings.js";
+import { metricsRouter } from "./routes/metrics.js";
 import { DEV_USER_ID } from "./devUser.js";
 
 export function createApp(pool: Pool): Express {
@@ -23,6 +24,10 @@ export function createApp(pool: Pool): Express {
   app.use("/api/scripts", scriptsRouter(pool));
   app.use("/api/sessions", sessionsRouter(pool));
   app.use("/api/settings", settingsRouter(pool));
+  // Anonymous, opt-in, unauthenticated by design -- see routes/metrics.ts's
+  // own header for why this one deliberately doesn't go through the
+  // req.userId/ownership pattern every other route above does.
+  app.use("/api/metrics", metricsRouter(pool));
 
   // Found via code review: with no error-handling middleware, an async
   // route handler's rejection (see asyncHandler.ts -- e.g. a DB error) had

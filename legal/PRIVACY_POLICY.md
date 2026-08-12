@@ -7,6 +7,13 @@
 > user accounts are added, the server-side Script Service is wired up, an
 > analytics SDK is added), **this document must be updated to match** —
 > it describes today's code, not a promise about the future.
+>
+> **2026-08-12 update:** added the "Optional: help improve FlowCue AI"
+> section below, describing a new **opt-in, off-by-default** anonymous
+> metrics feature. Everything else in this document is otherwise unchanged
+> and still accurate — this app still has no accounts, no analytics SDK, no
+> advertising, and does not store or transmit audio/transcripts, regardless
+> of this new toggle's setting.
 
 # FlowCue AI — Privacy Policy
 
@@ -23,6 +30,12 @@ teleprompter. This policy explains what happens to your data when you use it.
   recorded or saved** by FlowCue AI, anywhere.
 - We don't have user accounts, we don't use analytics or advertising, and
   we don't use cookies.
+- There's one **optional, off-by-default** exception to all of the above:
+  if you turn on "Help improve FlowCue AI" in Settings, a handful of
+  numbers describing a rehearsal session (nothing you said, nothing from
+  your script) are sent to us to improve the app's default tuning over
+  time. See below for exactly what that is and isn't. It stays off unless
+  you turn it on, and you can turn it back off anytime.
 
 ## Microphone audio
 
@@ -69,6 +82,52 @@ early backend infrastructure for this planned for a future version — if and
 when that ships, this policy will be updated before it's turned on, and it
 will describe what changes.)
 
+## Optional: help improve FlowCue AI
+
+Everything above describes FlowCue AI's default behavior. Separately, in
+Settings, there's an **off-by-default** toggle called "Help improve FlowCue
+AI." Here's exactly what it does, and doesn't do, if you turn it on.
+
+**What's sent, when it's on:** at the end of a rehearsal session, a small
+set of numbers describing that session:
+
+- How long it lasted, and how many words were spoken.
+- Your speaking pace (words per minute) and filler-word rate.
+- A tracking-confidence score, and how many times live cueing lost your
+  place ("froze") during the session.
+- Which speech language and visual reading mode you had selected, and
+  whether the session used AssemblyAI or the browser fallback recognizer.
+
+That's the complete list. **We never send:** anything you said, any text
+from your script, your script's title, or any audio. There is nothing
+free-text in this payload at all — every field is a number, a duration, or
+a selection from a fixed small set of options (like which visual mode was
+active). It is not technically possible for a transcript or script content
+to end up in this data, because the code that builds it never has access to
+that content in the first place — it's assembled from the same session
+summary numbers already shown to you in the app's own "AI Coach" report,
+nothing more.
+
+**What it's for:** improving FlowCue AI's default tuning (how quickly it
+should decide it's lost your place, how it tunes coaching feedback, and
+similar defaults) based on patterns across many rehearsal sessions, instead
+of tuning defaults against only the handful of test scripts used during
+development. This is separate from, and in addition to, the on-device
+personalization described elsewhere in the app (which never leaves your
+device either way, on or off).
+
+**How it's linked to you:** it isn't. Each submission is sent with no
+account identifier, no device identifier, and no way for us to connect two
+submissions as coming from the same person or the same device. We do not
+log the originating IP address alongside this data. There is no "your data"
+to look up, export, or delete under this feature specifically, because
+nothing we receive is tied back to you in the first place.
+
+**Default and control:** **off by default.** Turning it on affects only
+sessions from that point forward; nothing is sent retroactively for past
+sessions, and nothing is sent at all unless you turn it on. Turn it off in
+Settings anytime to stop future sessions from being included.
+
 ## Third-party services
 
 - **AssemblyAI** — receives streamed audio for transcription, as described
@@ -78,8 +137,11 @@ will describe what changes.)
   Google, the same as visiting any page that embeds a Google-hosted
   resource, under [Google's privacy policy](https://policies.google.com/privacy).
 
-We do not use analytics, advertising, tracking pixels, or cookies of any
-kind. We have no crash-reporting or telemetry SDK integrated.
+We do not use any third-party analytics, advertising, tracking-pixel, or
+cookie SDKs of any kind, and have no crash-reporting or telemetry SDK
+integrated. The only data collection in the app at all is the first-party,
+opt-in, anonymous session-metrics feature described above under "Optional:
+help improve FlowCue AI" — off by default, and not a third-party SDK.
 
 ## Children's privacy
 
@@ -123,8 +185,23 @@ after switching STT providers from Deepgram to AssemblyAI (cost -- see
   `console.error(err)` exists server-side, for exceptions, not content.
 - `webapp/src/lib/storage.ts` persists exclusively to three `localStorage`
   keys (`flowcue.scripts.v1`, `flowcue.sessions.v1`, `flowcue.settings.v1`)
-  and makes no network calls. There are zero `fetch`/`axios` calls anywhere
-  in `webapp/src`.
+  and makes no network calls.
+- **2026-08-12:** the one exception to "zero `fetch` calls anywhere in
+  `webapp/src`" above -- `webapp/src/lib/anonymousMetrics.ts` makes exactly
+  one, a `fetch(..., {method: "POST"})` to `/api/metrics`, called from
+  `ScriptWorkspace.tsx`'s `handleStop()` and gated on
+  `Settings.shareAnonymousMetrics` (default `false`, verified in
+  `lib/types.ts`'s `DEFAULT_SETTINGS`). Verified the request body shape
+  directly against the `AnonymousSessionMetrics` interface in that file:
+  nine fields, every one a number/boolean/short-enum-string, none of them
+  script content or a transcript. Verified server-side too:
+  `server/src/routes/metrics.ts` rejects (400) any request body field
+  outside that same nine-field allowlist, and
+  `server/src/migrations/002_anonymous_metrics.sql`'s `anonymous_metrics`
+  table has no `user_id`/`script_id`/any identifier column for a submission
+  to be linked through even in principle. The route also doesn't log the
+  request (no request-logging middleware is registered in `app.ts`), so the
+  requesting IP is never persisted alongside a submission.
 - The Postgres-backed "Script Service" in `server/src/routes/*` is real,
   tested code but is **not called by the shipped webapp at all** — it's
   scoped to a single hardcoded placeholder user ID

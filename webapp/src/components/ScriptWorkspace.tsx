@@ -7,6 +7,7 @@ import type { Script, SessionRecord, VisualMode } from "../lib/types";
 import { VISUAL_MODE_LABELS } from "../lib/types";
 import { computeSessionMetrics, practiceNudge } from "../lib/sessionMetrics";
 import * as storage from "../lib/storage";
+import { sendAnonymousMetrics } from "../lib/anonymousMetrics";
 import { RehearsalStage } from "./RehearsalStage";
 import { CoachReport } from "./CoachReport";
 import "./ScriptWorkspace.css";
@@ -17,6 +18,9 @@ interface ScriptWorkspaceProps {
   offlineModeEnabled: boolean;
   syllabifyLongWords: boolean;
   speechLanguage: string;
+  /** Off by default -- see legal/PRIVACY_POLICY.md's "Optional: help
+   * improve FlowCue AI" section for the exact commitment this gates. */
+  shareAnonymousMetrics: boolean;
   onBack: () => void;
   onScriptUpdated: (script: Script) => void;
   onScriptDeleted: (id: string) => void;
@@ -32,6 +36,7 @@ export function ScriptWorkspace({
   offlineModeEnabled,
   syllabifyLongWords,
   speechLanguage,
+  shareAnonymousMetrics,
   onBack,
   onScriptUpdated,
   onScriptDeleted,
@@ -345,6 +350,26 @@ export function ScriptWorkspace({
     if (!startedAt || wordCount === 0) return;
     const durationSec = Math.max(1, (Date.now() - startedAt) / 1000);
     const { wpm, fillerRate, confidence } = computeSessionMetrics(wordCount, fillerCount, durationSec);
+    if (shareAnonymousMetrics) {
+      // Fire-and-forget, best-effort -- see anonymousMetrics.ts's own
+      // header for the exact privacy commitment this call must keep
+      // (numbers/enums only, never script content, never linked to this
+      // user or device). Sent for both real and practice sessions --
+      // pace/freeze signal is equally valid either way, and this never
+      // touches storage.addSession or the local session-history trend
+      // chart regardless of practiceMode.
+      sendAnonymousMetrics({
+        durationSec: Math.round(durationSec),
+        wordCount,
+        wpm,
+        fillerRate: Math.round(fillerRate * 10) / 10,
+        confidence: Math.round(confidence),
+        freezeCount,
+        language: speechLanguage,
+        visualMode,
+        usingFallback,
+      });
+    }
     const sessionData = {
       scriptId: script.id,
       date: new Date().toISOString(),

@@ -91,6 +91,26 @@ export function SettingsView({ settings, onChange, onClearAllData }: SettingsVie
       </div>
 
       <div className="settingsCard">
+        <h3>Help Improve FlowCue AI</h3>
+        <p>
+          Off by default. If you turn this on, a small numeric summary of each rehearsal session --
+          duration, pace, filler-word rate, a tracking-confidence score, how many times live cueing
+          lost your place, which language/visual mode you used -- is sent anonymously to help tune
+          FlowCue AI's defaults over time. Nothing you said, no script text, and no audio is ever
+          included, and nothing sent is linked to you or this device -- see the Privacy Policy's
+          "Optional: help improve FlowCue AI" section for the exact details.
+        </p>
+        <label className="switchRow switchRow--light">
+          <input
+            type="checkbox"
+            checked={settings.shareAnonymousMetrics}
+            onChange={(e) => onChange({ shareAnonymousMetrics: e.target.checked })}
+          />
+          <span>Share anonymous session metrics</span>
+        </label>
+      </div>
+
+      <div className="settingsCard">
         <h3>Data</h3>
         <p>
           Scripts, session history, and preferences are currently stored locally in this browser

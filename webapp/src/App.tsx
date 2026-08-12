@@ -86,6 +86,7 @@ export default function App() {
             offlineModeEnabled={settings.offlineModeEnabled}
             syllabifyLongWords={settings.syllabifyLongWords}
             speechLanguage={settings.speechLanguage}
+            shareAnonymousMetrics={settings.shareAnonymousMetrics}
             onBack={() => setActiveScriptId(null)}
             onScriptUpdated={handleScriptUpdated}
             onScriptDeleted={handleDelete}

@@ -72,6 +72,17 @@ export interface Settings {
    * providers. Only affects what language the recognizer listens for --
    * the UI itself and the script text are unaffected. */
   speechLanguage: string;
+  /** Opt-in, off by default -- see legal/PRIVACY_POLICY.md's "Optional:
+   * help improve FlowCue AI" section for the exact commitment this makes.
+   * When true, a session's numeric summary (duration, wpm, filler rate,
+   * confidence, freeze count, language, visual mode, which recognizer was
+   * used) is sent anonymously to FlowCue AI's backend at the end of a
+   * session -- see lib/anonymousMetrics.ts. Never includes script text,
+   * spoken words, or audio; never includes any account/device identifier.
+   * Purely additive to (never a replacement for) the on-device
+   * personalization in engine/adaptiveTuning.ts, which never leaves the
+   * device regardless of this setting. */
+  shareAnonymousMetrics: boolean;
 }
 
 export const DEFAULT_SETTINGS: Settings = {
@@ -80,4 +91,5 @@ export const DEFAULT_SETTINGS: Settings = {
   offlineModeEnabled: false,
   syllabifyLongWords: false,
   speechLanguage: "en-US",
+  shareAnonymousMetrics: false,
 };

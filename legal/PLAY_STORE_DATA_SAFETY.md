@@ -10,13 +10,26 @@
 > HTTPS/WSS (see `webapp/DEPLOYMENT.md` and `server/README.md`) — the
 > encryption-in-transit answer below can now genuinely be "yes," not
 > conditional on hosting that didn't exist yet.
+>
+> **2026-08-12 update:** added the "App activity" data type below for the
+> new opt-in, off-by-default anonymous session-metrics feature (Settings →
+> "Help improve FlowCue AI"), built and tested at this same date --
+> `server/src/routes/metrics.ts` (validation), `webapp/src/lib/anonymousMetrics.ts`
+> (client submission), `server/src/migrations/002_anonymous_metrics.sql`
+> (storage, no identifying columns). **Not yet fully live end-to-end**: the
+> route needs a real `DATABASE_URL` configured on the Render backend to
+> actually persist submissions -- confirm that's set (see server/README.md)
+> before treating this feature, or this form's answers about it, as
+> describing production reality. Re-verify this section against the code
+> at submission time regardless, same as everything else in this file.
 
 # Play Store Data Safety — draft answers
 
 ## Does your app collect or share any of the required user data types?
 
-**Yes** — one data type: audio (voice) that passes through for
-transcription. Nothing else.
+**Yes** — two data types: audio (voice) that passes through for
+transcription, and (only if the user opts in) anonymous app-activity
+metrics. Nothing else.
 
 ## Data type: Audio → Voice or sound recordings
 
@@ -43,9 +56,41 @@ transcription. Nothing else.
   sense — FlowCue AI doesn't retain it to delete. There's no account and no
   server-side data store holding your audio.
 
+## Data type: App activity → App interactions (or "Other app performance
+## data," depending on how Play Console currently buckets this)
+
+- **Collected?** Only if the user explicitly opts in via a Settings toggle
+  ("Help improve FlowCue AI"), **off by default**. Nothing under this
+  category is collected unless and until a user turns this on themselves.
+- **Shared?** No — this is FlowCue AI's own first-party backend, not shared
+  with any third party.
+- **Purpose(s):** Analytics (to improve default app tuning/behavior based on
+  aggregate patterns across sessions). Not used for advertising,
+  personalization shown back to the user, or any purpose other than
+  informing future default-tuning decisions.
+- **What exactly is collected:** per-session numeric summaries only --
+  duration, word count, words-per-minute, filler-word rate, a
+  tracking-confidence score, freeze count, which language/visual mode was
+  selected, and whether the primary or fallback recognizer was used. See
+  `PRIVACY_POLICY.md`'s "Optional: help improve FlowCue AI" section for the
+  complete, exact field list. **Never included:** any transcript, spoken
+  words, script text/title, or audio.
+- **Is this data linked to an identifiable user?** No -- submissions carry
+  no account ID, device ID, or other identifier, and the server does not
+  log/store the requesting IP alongside them. If Play Console's form
+  distinguishes "collected" from "linked to you," this should be answered
+  as collected-but-not-linked.
+- **Is this data required or optional?** Fully optional -- the entire app,
+  including live cueing, works identically whether this is on or off.
+- **Can users request this data be deleted?** Not in the way an
+  account-linked record could be, since submissions aren't tied to a
+  specific user or device in the first place -- there's no "your data" to
+  locate within the aggregate. Turning the toggle off stops any future
+  session from being included.
+
 ## Every other Play Console data category (personal info, financial info,
 ## health/fitness, messages, photos/videos, files/docs, calendar, contacts,
-## app activity, web browsing, app info & performance, device/other IDs)
+## web browsing, device/other IDs)
 
 **Not collected**, based on the current code:
 
@@ -55,9 +100,12 @@ transcription. Nothing else.
 - Scripts, rehearsal session stats, and settings are stored **only in
   localStorage on-device** — never transmitted to FlowCue AI's servers or
   any third party, so per Google's own guidance this does not count as
-  "collected" (collection means transmitted off the device).
-- No analytics, crash reporting, or advertising SDK is integrated anywhere
-  in the app.
+  "collected" (collection means transmitted off the device). This is
+  separate from, and unaffected by, the opt-in App activity metrics above --
+  those are freshly computed numbers sent (only if enabled) at the end of a
+  session, not the locally-stored history itself being transmitted.
+- No third-party analytics, crash reporting, or advertising SDK is
+  integrated anywhere in the app.
 - No location, camera, contacts, calendar, or file-system access is
   requested — the only permission the app asks for is the microphone.
 
@@ -100,3 +148,7 @@ third-party resources before submitting.
    this form must match current behavior, not this snapshot.
 3. Read AssemblyAI's current data retention / subprocessor terms before
    answering the "ephemeral processing" question with full confidence.
+4. Confirm the "Help improve FlowCue AI" toggle actually defaults to off in
+   a fresh install before submitting the App activity answers above --
+   this entire section's accuracy depends on that being true in the
+   shipped build, not just the code as originally written.
