@@ -58,4 +58,30 @@ describe("practiceNudge", () => {
     // thing to fix first, so that's the one message shown, not both at once.
     expect(practiceNudge(50, 15, 180)).toMatch(/filler words/i);
   });
+
+  describe("personalized pace band", () => {
+    // A presenter whose own natural pace is 180wpm -- the generic band
+    // would flag this as "too fast" every session, which isn't useful
+    // coaching if it's genuinely normal for them. See adaptiveTuning.ts's
+    // paceRange, which computes this from the device's own history.
+    const fastTalkerRange = { slowWpm: 153, fastWpm: 207 };
+
+    it("does not flag a pace that's fast by the generic band but normal for this presenter", () => {
+      expect(practiceNudge(50, 2, 180, fastTalkerRange)).toMatch(/good pace/i);
+    });
+
+    it("still flags a pace that's fast even by this presenter's own wider band", () => {
+      expect(practiceNudge(50, 2, 220, fastTalkerRange)).toMatch(/slowing down/i);
+    });
+
+    it("flags a pace as too slow relative to this presenter's own (higher) floor, even though it's within the generic band", () => {
+      // 120wpm reads as fine against the generic 110-165 band, but is
+      // below this presenter's own personalized floor of 153.
+      expect(practiceNudge(50, 2, 120, fastTalkerRange)).toMatch(/pick up the pace/i);
+    });
+
+    it("falls back to the generic band when no personalized range is passed", () => {
+      expect(practiceNudge(50, 2, 180)).toMatch(/slowing down/i);
+    });
+  });
 });

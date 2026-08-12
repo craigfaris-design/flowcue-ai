@@ -245,7 +245,7 @@ export function ScriptWorkspace({
         const { startedAt, wordCount, fillerCount } = sessionRef.current;
         const durationSec = (Date.now() - startedAt) / 1000;
         const { wpm, fillerRate } = computeSessionMetrics(wordCount, fillerCount, durationSec);
-        setLiveNudge(practiceNudge(wordCount, fillerRate, wpm));
+        setLiveNudge(practiceNudge(wordCount, fillerRate, wpm, adaptiveTuning.paceRange));
       }
     }, 300);
     return () => clearInterval(id);
@@ -558,9 +558,10 @@ export function ScriptWorkspace({
                   </div>
                   {adaptiveTuning.isPersonalized && (
                     <div className="panelCard__disclosure">
-                      Personalized to how live cueing has tracked you on this device over your last{" "}
-                      {adaptiveTuning.sessionsUsed} sessions -- entirely local, nothing about your speech is
-                      sent anywhere to compute this.
+                      Personalized to how live cueing has tracked you -- and, in Practice Mode, to your own
+                      natural pace ({adaptiveTuning.paceRange.slowWpm}-{adaptiveTuning.paceRange.fastWpm} wpm)
+                      -- based on your last {adaptiveTuning.sessionsUsed} sessions on this device. Entirely
+                      local; nothing about your speech is sent anywhere to compute this.
                     </div>
                   )}
                   <button className="btn--link" onClick={() => setOfflineReadingActive(true)}>

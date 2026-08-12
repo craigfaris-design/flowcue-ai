@@ -81,6 +81,32 @@ describe("computeAdaptiveOptions", () => {
     expect(result.sessionsUsed).toBe(10);
   });
 
+  it("falls back to the generic 110-165wpm pace band with no history yet", () => {
+    const result = computeAdaptiveOptions([]);
+    expect(result.paceRange).toEqual({ slowWpm: 110, fastWpm: 165 });
+  });
+
+  it("personalizes the pace-coaching band to this device's own recent average wpm once there's enough history", () => {
+    // Consistently a fast talker at 180wpm -- the generic 110-165 band
+    // would nudge them to slow down on every single session, which isn't
+    // useful coaching if 180 genuinely is their normal, comfortable pace.
+    const sessions = Array.from({ length: 5 }, () => session({ wpm: 180, freezeCount: 0 }));
+    const result = computeAdaptiveOptions(sessions);
+    expect(result.paceRange.slowWpm).toBe(Math.round(180 * 0.85));
+    expect(result.paceRange.fastWpm).toBe(Math.round(180 * 1.15));
+    // Their own normal pace must land safely inside their own band.
+    expect(180).toBeGreaterThanOrEqual(result.paceRange.slowWpm);
+    expect(180).toBeLessThanOrEqual(result.paceRange.fastWpm);
+  });
+
+  it("clamps the personalized pace band to sane absolute bounds even for an extreme average", () => {
+    const verySlow = Array.from({ length: 5 }, () => session({ wpm: 50, freezeCount: 0 }));
+    expect(computeAdaptiveOptions(verySlow).paceRange.slowWpm).toBeGreaterThanOrEqual(80);
+
+    const veryFast = Array.from({ length: 5 }, () => session({ wpm: 300, freezeCount: 0 }));
+    expect(computeAdaptiveOptions(veryFast).paceRange.fastWpm).toBeLessThanOrEqual(220);
+  });
+
   it("weights by total words across sessions, not by session count, so one long rough session doesn't dominate", () => {
     const sessions = [
       session({ freezeCount: 30, wordCount: 1000 }), // 3 per 100 words
