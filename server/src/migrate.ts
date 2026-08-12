@@ -1,13 +1,20 @@
 import { readdirSync, readFileSync } from "fs";
 import path from "path";
 import { fileURLToPath } from "url";
+import type { Pool } from "pg";
 import { createPool } from "./db.js";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const migrationsDir = path.join(__dirname, "migrations");
 
-async function main() {
-  const pool = createPool();
+// Extracted so index.ts can run this on every server boot (idempotent --
+// safe to call on a DB that's already up to date, see the `applied` check
+// below) without needing Render's Shell/One-Off Jobs, both paid-tier-only
+// features unavailable on the free plan this runs on. Deliberately doesn't
+// own the pool's lifecycle (create/end) -- the caller decides that, since
+// index.ts's pool needs to stay open for the running server, while the CLI
+// entry point below (`npm run migrate`) still wants its own short-lived one.
+export async function runMigrations(pool: Pool): Promise<void> {
   await pool.query(`
     create table if not exists _migrations (
       name text primary key,
@@ -29,10 +36,16 @@ async function main() {
   }
 
   console.log("Migrations up to date.");
-  await pool.end();
 }
 
-main().catch((err) => {
-  console.error(err);
-  process.exit(1);
-});
+// CLI entry point (`npm run migrate`) -- only runs when this file is
+// executed directly, not when index.ts imports runMigrations from it.
+if (import.meta.url === `file://${process.argv[1]}`) {
+  const pool = createPool();
+  runMigrations(pool)
+    .then(() => pool.end())
+    .catch((err) => {
+      console.error(err);
+      process.exit(1);
+    });
+}
