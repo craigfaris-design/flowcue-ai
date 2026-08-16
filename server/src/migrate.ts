@@ -1,6 +1,6 @@
 import { readdirSync, readFileSync } from "fs";
 import path from "path";
-import { fileURLToPath } from "url";
+import { fileURLToPath, pathToFileURL } from "url";
 import type { Pool } from "pg";
 import { createPool } from "./db.js";
 
@@ -40,7 +40,12 @@ export async function runMigrations(pool: Pool): Promise<void> {
 
 // CLI entry point (`npm run migrate`) -- only runs when this file is
 // executed directly, not when index.ts imports runMigrations from it.
-if (import.meta.url === `file://${process.argv[1]}`) {
+// Must go through pathToFileURL rather than a manual `file://` template:
+// process.argv[1] is a plain OS path (backslashes on Windows), while
+// import.meta.url is always a properly-escaped file:// URL, so a naive
+// string comparison never matches on Windows and this guard silently
+// never fires there.
+if (import.meta.url === pathToFileURL(process.argv[1]).href) {
   const pool = createPool();
   runMigrations(pool)
     .then(() => pool.end())

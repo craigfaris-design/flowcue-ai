@@ -8,3 +8,7 @@
 # case a copy ever ends up here locally for a build.
 *.keystore
 *.jks
+
+# Local dev artifacts (self-hosted STT prototype)
+server/selfhosted-stt-prototype/__pycache__/
+server/selfhosted-stt-prototype/server.log

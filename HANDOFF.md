@@ -31,17 +31,27 @@ regresses it:
   highest-blast-radius files in the app.
 - **Anonymous metrics** (added same day, after the above): Settings → "Help improve FlowCue AI",
   off by default. When on, sends a numbers-only session summary (never script content/transcript)
-  to `POST /api/metrics`, stored in `flowcue-metrics-db` (Render free Postgres, linked to the
+  to `POST /api/metrics`, stored in Neon Postgres (project `flowcue-metrics`, linked to the
   backend via `DATABASE_URL`). Migrations run automatically on every server boot
-  (`server/src/index.ts` → `runMigrations()` in `migrate.ts`) since the free tier has no
+  (`server/src/index.ts` → `runMigrations()` in `migrate.ts`) since Render's free tier has no
   Shell/One-Off Jobs to run them separately -- **the Dockerfile must keep copying
   `src/migrations` into `dist/migrations`** (`tsc` doesn't do this on its own; removing that
   `COPY` line silently breaks migrations again with an `ENOENT` on next deploy, not a build
   failure, so it won't be caught until runtime). See `legal/PRIVACY_POLICY.md`'s "Optional: help
   improve FlowCue AI" for the exact data-collection commitment this code has to keep.
-  **`flowcue-metrics-db` is on Render's free Postgres tier, which expires 30 days after
-  creation** (created 2026-08-12) unless upgraded to paid -- if it lapses, submissions just get
-  silently discarded again (no user-facing breakage), but decide before then whether to renew it.
+  **Originally provisioned on Render's free Postgres tier (`flowcue-metrics-db`), which expires
+  30 days after creation -- migrated to Neon's free tier on 2026-08-13 instead since Neon's free
+  tier doesn't expire.** `DATABASE_URL` on the `flowcue-backend` Render service now points at
+  Neon (`ep-snowy-block-zadxk9x3.c-2.eu-west-2.aws.neon.tech`); the old `flowcue-metrics-db`
+  Render Postgres instance is unused and can be deleted whenever. Verified end-to-end after the
+  switch: `_migrations` shows both `001_init.sql` and `002_anonymous_metrics.sql` applied on
+  Neon, and a live test POST to `/api/metrics` landed a row there (deleted afterward).
+  Separately found and fixed: `npm run migrate`'s CLI entry point (`server/src/migrate.ts`)
+  never actually ran on Windows -- its old `import.meta.url === file://${process.argv[1]}` guard
+  compared POSIX-style and Windows-style path separators, which never matched, so the script
+  silently no-op'd. Fixed by routing `process.argv[1]` through `pathToFileURL()` instead of a
+  manual template string. Wasn't urgent (`runMigrations()` also runs automatically on every
+  server boot regardless) but `npm run migrate` is now trustworthy on Windows too.
 
 ## What this is
 
