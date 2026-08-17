@@ -254,7 +254,10 @@ export function ScriptWorkspace({
       }
     }, 300);
     return () => clearInterval(id);
-  }, [listening, engine, practiceMode]);
+    // adaptiveTuning is memoized with an empty dep array (see its own comment
+    // above) -- stable for the component's whole lifetime, so including it
+    // here can't cause an extra re-run, just satisfies exhaustive-deps.
+  }, [listening, engine, practiceMode, adaptiveTuning.paceRange]);
 
   useEffect(() => {
     // Stop ticking the moment we're actually ready -- connectStartRef being
